@@ -50,6 +50,7 @@ function ensureSchema() {
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_check TEXT;
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_checked_at TIMESTAMPTZ;
         ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS google_note TEXT;
+        ALTER TABLE google_review_agent_submission ADD COLUMN IF NOT EXISTS chat_mobile TEXT;
       `);
     })().catch((err) => { schemaPromise = null; throw err; });
   }
@@ -84,6 +85,76 @@ const pick = (body, names) => {
   }
   return '';
 };
+
+// ----- which customer we messaged? -----
+
+/** Malaysian mobile numbers written inside free text, e.g. "chat +60 10-710 5112". */
+function numbersInText(text) {
+  const found = String(text || '').match(/(?:\+?60|0)[\s-]?1\d(?:[\s-]?\d){7,8}/g) || [];
+  return found.map((n) => reviewService.normalizeMobile(n)).filter(Boolean);
+}
+
+/**
+ * The customer's WhatsApp chat number is not always the number they want the Touch 'n Go reload on, so every number
+ * the agent gave is tried, in this order: the chat number, the mobile, then any number written in the note.
+ */
+function candidateNumbers({ chatMobileInput, mobile, note }) {
+  const list = [reviewService.normalizeMobile(chatMobileInput), mobile, ...numbersInText(note)].filter(Boolean);
+  return [...new Set(list)];
+}
+
+async function findCustomer(candidates) {
+  for (const n of candidates) {
+    const found = await pool.query(
+      `SELECT id, customer_id, customer_name, status, claim_id FROM google_review_campaign_message
+        WHERE is_test = FALSE AND phone = $1 ORDER BY id DESC LIMIT 1`, [`6${n}`]);
+    if (found.rows[0]) return { matched: found.rows[0], via: n };
+  }
+  return { matched: null, via: null };
+}
+
+/** A matched customer without a claim yet gets a Pending claim for HR/KC to approve and pay. */
+async function tryCreateClaim({ matched, mobile, proofUrl, proofMime, agentName, reviewerName, note, labels }) {
+  if (matched.claim_id) {
+    labels.push(`customer already has claim #${matched.claim_id}`);
+    return { claimId: matched.claim_id, status: 'Recorded' };
+  }
+  try {
+    const result = await campaign.verifyAndCreateClaim({
+      messageId: matched.id,
+      tngMobileInput: mobile || null,
+      photoUrl: proofUrl,
+      photoMime: proofMime,
+      note: `via WhatsApp AI agent "${agentName}"${reviewerName ? `, Google reviewer name "${reviewerName}"` : ''}${note ? `: ${note}` : ''}`,
+      actor: { userId: 'ai-agent', name: `AI agent (${agentName})` }
+    });
+    if (result.error) { labels.push(`claim not created: ${result.error}`); return { claimId: null, status: 'Recorded' }; }
+    return { claimId: result.claim.id, status: 'Claim created' };
+  } catch (err) {
+    console.error('[AgentApi] claim creation failed:', err.message);
+    labels.push('claim not created: server error (the submission is recorded)');
+    return { claimId: null, status: 'Recorded' };
+  }
+}
+
+/** Submissions that found no customer when they arrived are tried again (the numbers may be in the note). */
+async function rematchCustomers() {
+  const open = await pool.query(
+    `SELECT id, chat_mobile, mobile, mobile_input, note, proof_url, proof_mime, agent_name, reviewer_name, labels
+       FROM google_review_agent_submission WHERE claim_id IS NULL AND matched_message_id IS NULL
+        AND created_at > NOW() - interval '30 days' ORDER BY id DESC LIMIT 50`);
+  for (const r of open.rows) {
+    const candidates = candidateNumbers({ chatMobileInput: r.chat_mobile, mobile: r.mobile, note: r.note });
+    const { matched, via } = await findCustomer(candidates);
+    if (!matched) continue;
+    const labels = (Array.isArray(r.labels) ? r.labels : []).filter((l) => !/not a customer we messaged/.test(l));
+    labels.push(`customer found later by the number 0${String(via).slice(1)} (${matched.customer_name})`);
+    const made = await tryCreateClaim({ matched, mobile: r.mobile, proofUrl: r.proof_url, proofMime: r.proof_mime, agentName: r.agent_name || 'agent', reviewerName: r.reviewer_name, note: r.note, labels });
+    await pool.query(
+      `UPDATE google_review_agent_submission SET matched_message_id = $2, matched_customer = $3, claim_id = $4, status = $5, labels = $6 WHERE id = $1`,
+      [r.id, matched.id, matched.customer_name, made.claimId, made.status, JSON.stringify(labels)]);
+  }
+}
 
 // ----- name matching against the Google reviews we scanned -----
 const normName = (s) => String(s || '').toLowerCase().replace(/\((atap|ecn|ec)\)|[^a-z一-鿿 ]/gi, ' ').replace(/\s+/g, ' ').trim();
@@ -182,6 +253,7 @@ async function submit(req) {
   const mobileInput = pick(body, ['mobile', 'mobile_number', 'phone', 'whatsapp', 'customer_mobile']);
   const note = pick(body, ['note', 'remark', 'notes']);
   const mobile = reviewService.normalizeMobile(mobileInput);
+  const chatMobileInput = pick(body, ['chat_mobile', 'chat_number', 'whatsapp_number', 'customer_whatsapp', 'replied_from']);
 
   if (!reviewerName) labels.push('no reviewer name given');
   if (!mobileInput) labels.push('no mobile number given');
@@ -217,15 +289,11 @@ async function submit(req) {
   if (req.uploadProblem) labels.push(req.uploadProblem);
   if (!proofUrl && !labels.some((l) => /proof/.test(l))) labels.push('no proof image');
 
-  // Which customer we messaged does this mobile belong to?
-  let matched = null;
-  if (mobile) {
-    const found = await pool.query(
-      `SELECT id, customer_id, customer_name, status, claim_id FROM google_review_campaign_message
-        WHERE is_test = FALSE AND phone = $1 ORDER BY id DESC LIMIT 1`, [`6${mobile}`]);
-    matched = found.rows[0] || null;
-  }
-  if (mobile && !matched) labels.push('this mobile is not a customer we messaged');
+  // Which customer we messaged is this? Try the chat number, the mobile and any number written in the note.
+  const candidates = candidateNumbers({ chatMobileInput, mobile, note });
+  const { matched, via } = await findCustomer(candidates);
+  if (!matched) labels.push('no customer we messaged has any of the numbers given (chat number, mobile or note)');
+  else if (via !== mobile) labels.push(`customer found by the number 0${String(via).slice(1)}, not by the mobile`);
 
   // Is there a Google review under this name?
   const scanned = reviewerName ? await findScannedReview(reviewerName) : null;
@@ -238,37 +306,21 @@ async function submit(req) {
   const dup = mobile ? await pool.query('SELECT id FROM google_review_agent_submission WHERE mobile = $1 ORDER BY id LIMIT 1', [mobile]) : { rows: [] };
   if (dup.rows[0]) labels.push(`this mobile was already submitted (submission #${dup.rows[0].id})`);
 
-  // A matched customer without a claim yet gets a Pending claim for HR/KC to approve and pay.
   let claimId = null;
   let status = 'Recorded';
-  if (matched && matched.claim_id) {
-    claimId = matched.claim_id;
-    labels.push(`customer already has claim #${matched.claim_id}`);
-  } else if (matched) {
-    try {
-      const result = await campaign.verifyAndCreateClaim({
-        messageId: matched.id,
-        tngMobileInput: mobile,
-        photoUrl: proofUrl,
-        photoMime: proofMime,
-        note: `via WhatsApp AI agent "${agentName}"${reviewerName ? `, Google reviewer name "${reviewerName}"` : ''}${note ? `: ${note}` : ''}`,
-        actor: { userId: 'ai-agent', name: `AI agent (${agentName})` }
-      });
-      if (result.error) labels.push(`claim not created: ${result.error}`);
-      else { claimId = result.claim.id; status = 'Claim created'; }
-    } catch (err) {
-      console.error('[AgentApi] claim creation failed:', err.message);
-      labels.push('claim not created: server error (the submission is recorded)');
-    }
+  if (matched) {
+    const made = await tryCreateClaim({ matched, mobile, proofUrl, proofMime, agentName, reviewerName, note, labels });
+    claimId = made.claimId;
+    status = made.status;
   }
 
   const ins = await pool.query(
     `INSERT INTO google_review_agent_submission
        (agent_name, key_label, reviewer_name, mobile_input, mobile, proof_url, proof_mime, note,
-        matched_message_id, matched_customer, claim_id, google_review_id, status, labels)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id, created_at`,
+        matched_message_id, matched_customer, claim_id, google_review_id, status, labels, chat_mobile)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, created_at`,
     [agentName, req.agentKey.label, reviewerName || null, mobileInput || null, mobile || null, proofUrl, proofMime, note || null,
-      matched ? matched.id : null, matched ? matched.customer_name : null, claimId, scanned ? scanned.review_id : null, status, JSON.stringify(labels)]
+      matched ? matched.id : null, matched ? matched.customer_name : null, claimId, scanned ? scanned.review_id : null, status, JSON.stringify(labels), chatMobileInput || null]
   );
   // Read Google right after the reply goes out (the agent does not wait for it), then label the submission.
   setImmediate(() => { crossCheck(ins.rows[0].id, { fresh: true }).catch((err) => console.error('[AgentApi] cross-check failed:', err.message)); });
@@ -294,6 +346,7 @@ function handler(req, res) {
 /** Latest submissions for the team page, with totals and the Google check of each. */
 async function list(limit = 300) {
   await ensureSchema();
+  try { await rematchCustomers(); } catch (err) { console.error('[AgentApi] customer re-match failed:', err.message); }
   // Cheap re-match against the reviews already read from Google (no scraper call): an hourly scan may have found it since.
   try {
     const open = await pool.query(`SELECT id FROM google_review_agent_submission WHERE COALESCE(google_check, 'pending') <> 'found' AND created_at > NOW() - interval '30 days' ORDER BY id DESC LIMIT 100`);
@@ -328,7 +381,8 @@ const usage = {
   fields: {
     proof: 'the screenshot: either the image file, or a link (http/https URL) to the image. Send it in the field proof (photo, image or screenshot also work); proof_url also works for a link.',
     reviewer_name: 'who added the review: the name shown on the Google review',
-    mobile: "the customer's mobile number, e.g. 012-345 6789 or 60123456789",
+    mobile: "the mobile number for the RM15 Touch 'n Go reload, e.g. 012-345 6789 or 60123456789 (the customer's chat number if they gave no other)",
+    chat_mobile: "(optional but recommended) the WhatsApp number the customer chatted from, when it differs from mobile. This is how the customer we messaged is found.",
     agent_name: '(optional) which WhatsApp agent/session is sending this, e.g. marketing-292',
     note: '(optional) anything the agent wants to add'
   },

@@ -64,7 +64,7 @@
                 <input id="search" class="sb-input" type="search" placeholder="Search a name, mobile number or agent">
                 <button type="button" class="sb-chip" data-f="all" aria-pressed="true">All</button>
                 <button type="button" class="sb-chip" data-f="claim" aria-pressed="false">Claim created</button>
-                <button type="button" class="sb-chip" data-f="check" aria-pressed="false">Needs a check</button>
+                <button type="button" class="sb-chip" data-f="check" aria-pressed="false">No claim yet</button>
                 <button type="button" class="sb-btn" id="checkAllBtn"><i class="fa-brands fa-google"></i> Check all on Google</button>
             </div>
             <div class="sb-meta">Each submission is looked for on the Eternalgy Sdn Bhd (Johor Bahru) Google Maps page, using your scraper.tech Google Maps scraper. This happens by itself when an agent submits, and again every hour.</div>
@@ -103,7 +103,7 @@
             $('kpis').innerHTML = [
                 ['Submissions', t.total || 0, `${t.last_24h || 0} in the last 24 hours`],
                 ['Claim created', t.with_claim || 0, 'waiting for HR/KC to approve'],
-                ['Needs a check', t.needs_check || 0, 'no claim was made, see the notes'],
+                ['No claim yet', t.needs_check || 0, 'customer not matched, see the notes'],
                 ['Found on Google', t.found_on_google || 0, 'seen on the Eternalgy Johor Bahru page'],
                 ['Last received', t.last_at ? fmtDT(t.last_at) : 'none yet', '']
             ].map(([l, v, s]) => `<div class="sb-kpi"><div class="l">${esc(l)}</div><div class="v" style="${typeof v === 'string' ? 'font-size:18px;margin-top:10px' : ''}">${esc(v)}</div><div class="s">${esc(s)}</div></div>`).join('');
@@ -127,7 +127,7 @@
                     <div style="min-width:0">
                         <div class="sb-head">
                             <span class="sb-name">${esc(x.reviewer_name || 'No reviewer name')}</span>
-                            <span class="sb-tag ${x.claim_id ? 'ok' : 'warn'}">${x.claim_id ? `Claim #${esc(x.claim_id)} created` : 'Needs a check'}</span>
+                            <span class="sb-tag ${x.claim_id ? 'ok' : 'warn'}">${x.claim_id ? `Claim #${esc(x.claim_id)} created` : 'No claim yet'}</span>
                             <span class="sb-meta">#${esc(x.id)} · ${esc(fmtDT(x.created_at))}</span>
                         </div>
                         <div class="sb-fields">
