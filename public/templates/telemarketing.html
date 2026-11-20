@@ -480,18 +480,44 @@
         async function reloadLeads() {
             setLoading(true);
             try {
-                const params = new URLSearchParams();
-                if (currentUid) params.set('uid', currentUid);
-                params.set('limit', '150'); // Read all active leads for user
+                // The upstream API caps each request (500 now, 100 before), so read page by page until every assigned lead is loaded.
+                // The next offset is always the number of leads actually received, so a smaller server cap can never skip leads.
+                const PAGE_SIZE = 500;
+                const MAX_PAGES = 500; // safety ceiling against an endless loop
+                const collected = [];
+                let total = null;
 
-                const res = await fetch(`/api/v1/telemarketing/leads?${params.toString()}`);
-                const data = await res.json();
+                for (let page = 0; page < MAX_PAGES; page++) {
+                    const params = new URLSearchParams();
+                    if (currentUid) params.set('uid', currentUid);
+                    params.set('limit', String(PAGE_SIZE));
+                    params.set('offset', String(collected.length));
 
-                if (!res.ok || !data.ok) {
-                    throw new Error(data.error || 'Failed to retrieve leads');
+                    const res = await fetch(`/api/v1/telemarketing/leads?${params.toString()}`);
+                    const data = await res.json();
+
+                    if (!res.ok || !data.ok) {
+                        if (page === 0) throw new Error(data.error || 'Failed to retrieve leads');
+                        console.warn('[Telemarketing] Page load failed, showing leads loaded so far:', data.error);
+                        break;
+                    }
+
+                    const batch = Array.isArray(data.leads) ? data.leads : [];
+                    collected.push(...batch);
+                    if (Number.isFinite(Number(data.total))) total = Number(data.total);
+
+                    if (batch.length === 0) break;
+                    if (total !== null && collected.length >= total) break;
+
+                    // Show the first page straight away, then keep filling in the rest
+                    if (page === 0) {
+                        allLeads = collected.slice();
+                        populateCategoryFilter(allLeads);
+                        applyClientFilters();
+                    }
                 }
 
-                allLeads = Array.isArray(data.leads) ? data.leads : [];
+                allLeads = collected;
                 populateCategoryFilter(allLeads);
                 applyClientFilters();
 
