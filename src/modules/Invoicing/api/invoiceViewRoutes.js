@@ -13,6 +13,7 @@ const { normalizeV3Locale } = require('../services/invoiceV3Content');
 const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const { applyWarrantyTermsPolicyToInvoice } = require('../services/invoiceWarrantyTermsPolicy');
+const { applyRefundTermsPolicyToInvoice } = require('../services/invoiceRefundTermsPolicy');
 const { renderHtmlToPdf } = require('../services/pdfRenderer');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -749,8 +750,10 @@ function getPaymentTermsPolicyOptions(req) {
  * policy only has to be added here instead of at each generator call site.
  */
 function applyInvoiceTermsPolicies(invoice, req) {
-  return applyWarrantyTermsPolicyToInvoice(
-    applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req))
+  return applyRefundTermsPolicyToInvoice(
+    applyWarrantyTermsPolicyToInvoice(
+      applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req))
+    )
   );
 }
 

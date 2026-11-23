@@ -14,6 +14,7 @@ const {
   getPaymentTermsSchedule
 } = require('./invoicePaymentTermsPolicy');
 const { applyWarrantyTermsPolicyToInvoice } = require('./invoiceWarrantyTermsPolicy');
+const { applyRefundTermsPolicyToInvoice } = require('./invoiceRefundTermsPolicy');
 
 const PREVIEW_QUERY_VALUE = 'current';
 
@@ -38,8 +39,10 @@ function normalizeScheduleRows(rows) {
 }
 
 function applyLegacyTermsPolicies(invoice, previewCurrent) {
-  const policyInvoice = applyWarrantyTermsPolicyToInvoice(
-    applyPaymentTermsPolicyToInvoice(invoice, { forceCurrentTerms: previewCurrent })
+  const policyInvoice = applyRefundTermsPolicyToInvoice(
+    applyWarrantyTermsPolicyToInvoice(
+      applyPaymentTermsPolicyToInvoice(invoice, { forceCurrentTerms: previewCurrent })
+    )
   );
   return {
     ...policyInvoice,
