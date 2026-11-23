@@ -13,7 +13,7 @@ const LAST_LINE = '20% Payment After Installation Complete (Non-Refundable): The
 const TERMS = ['REFUND POLICY', 'Our Refund Policy:', BEFORE_SEDA_LINE, '', AFTER_SEDA_LINE_75, '', LAST_LINE].join('\n');
 
 function testAfterSedaParagraphRewritten() {
-  const out = applyRefundTermsToText(TERMS, true);
+  const out = applyRefundTermsToText(TERMS);
   assert.match(out, /5% \+ 75% Refund \(After SEDA Application\): Customers who have paid the 5% downpayment and the subsequent 75% fee/);
   assert.match(out, /The refund amount will be the amount paid minus RM1500\./);
   assert.doesNotMatch(out, /subject to deductions/);
@@ -21,27 +21,27 @@ function testAfterSedaParagraphRewritten() {
 }
 
 function testOtherParagraphsUntouched() {
-  const out = applyRefundTermsToText(TERMS, true);
+  const out = applyRefundTermsToText(TERMS);
   assert.ok(out.includes(BEFORE_SEDA_LINE));
   assert.ok(out.includes(LAST_LINE));
 }
 
 function testKeepsOldPercentOnOldDocuments() {
-  const out = applyRefundTermsToText(['x', AFTER_SEDA_LINE_60].join('\n'), true);
+  const out = applyRefundTermsToText(['x', AFTER_SEDA_LINE_60].join('\n'));
   assert.match(out, /5% \+ 60% Refund/);
   assert.match(out, /subsequent 60% fee/);
   assert.match(out, /minus RM1500\./);
 }
 
 function testIdempotent() {
-  const once = applyRefundTermsToText(TERMS, true);
-  assert.equal(applyRefundTermsToText(once, true), once);
+  const once = applyRefundTermsToText(TERMS);
+  assert.equal(applyRefundTermsToText(once), once);
 }
 
 function testMissingParagraphLeavesTextAndStillWorks() {
-  assert.equal(applyRefundTermsToText('1. Payment is due within 30 days.', true), '1. Payment is due within 30 days.');
-  assert.equal(applyRefundTermsToText('', true), '');
-  assert.equal(applyRefundTermsToText(null, true), '');
+  assert.equal(applyRefundTermsToText('1. Payment is due within 30 days.'), '1. Payment is due within 30 days.');
+  assert.equal(applyRefundTermsToText(''), '');
+  assert.equal(applyRefundTermsToText(null), '');
 }
 
 function testUnsignedAlwaysGetsNewWording() {
@@ -49,20 +49,16 @@ function testUnsignedAlwaysGetsNewWording() {
   assert.match(out.terms_and_conditions, /minus RM1500\./);
 }
 
-function testSignedOldDocumentKeepsSignedWording() {
-  const out = applyRefundTermsPolicy(
+function testSignedDocumentsAlsoGetNewWording() {
+  for (const invoice of [
     { invoice_date: '2026-11-22', customer_signature: 'data:image/png;base64,abc' },
-    { terms_and_conditions: TERMS }
-  );
-  assert.equal(out.terms_and_conditions, TERMS);
-}
-
-function testSignedNewDocumentGetsNewWording() {
-  const out = applyRefundTermsPolicy(
-    { invoice_date: '2026-11-23', customer_signature: 'data:image/png;base64,abc' },
-    { terms_and_conditions: TERMS }
-  );
-  assert.match(out.terms_and_conditions, /minus RM1500\./);
+    { invoice_date: '2026-03-01', signature_date: '2026-03-02' },
+    { invoice_date: '2026-11-23', customer_signature: 'data:image/png;base64,abc' }
+  ]) {
+    const out = applyRefundTermsPolicy(invoice, { terms_and_conditions: TERMS });
+    assert.match(out.terms_and_conditions, /minus RM1500\./);
+    assert.doesNotMatch(out.terms_and_conditions, /subject to deductions/);
+  }
 }
 
 function testNoTemplateDoesNotCrash() {
@@ -76,8 +72,7 @@ testKeepsOldPercentOnOldDocuments();
 testIdempotent();
 testMissingParagraphLeavesTextAndStillWorks();
 testUnsignedAlwaysGetsNewWording();
-testSignedOldDocumentKeepsSignedWording();
-testSignedNewDocumentGetsNewWording();
+testSignedDocumentsAlsoGetNewWording();
 testNoTemplateDoesNotCrash();
 
 console.log('Invoice refund terms policy checks passed.');

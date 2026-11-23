@@ -4,14 +4,12 @@
  * Primary Responsibility: Rewrite the "5% + N% Refund (After SEDA Application)" paragraph of
  *   invoice_template.terms_and_conditions at render time, so the refund after SEDA approval is
  *   "amount paid minus RM1500" instead of the itemised deductions.
- * Stability: Mirrors invoiceWarrantyTermsPolicy.js on purpose. The stored DB copy is never mutated.
- *   Unsigned quotations always carry the new wording; signed documents keep the exact wording the
- *   customer agreed to, gated on EFFECTIVE_DATE_KEY. Idempotent: running it twice gives the same text.
- *   If the paragraph is not found the text is returned untouched (the document is still produced).
+ * Stability: Applies to every document (unsigned and signed, any date) so every place that shows the
+ *   TNC shows the same refund wording. The stored DB copy is never mutated here; the SQL that updates
+ *   invoice_template row 1 is scripts/update_invoice_template_refund_after_seda.sql.
+ *   Idempotent: running it twice gives the same text. If the paragraph is not found the text is
+ *   returned untouched (the document is still produced).
  */
-const { getInvoicePolicyDateKey } = require('./invoicePaymentTermsPolicy');
-
-const EFFECTIVE_DATE_KEY = '2026-11-23';
 
 const REFUND_AFTER_SEDA_AMOUNT = 'RM1500';
 
@@ -19,23 +17,9 @@ const REFUND_AFTER_SEDA_AMOUNT = 'RM1500';
 // group 2 = the second percentage (60% on old documents, 75% on new ones).
 const REFUND_AFTER_SEDA_LINE_PATTERN = /^([ \t]*5%\s*\+\s*(\d+%)\s+Refund\s*\(After\s+SEDA\s+Application\)\s*:)[^\n]*$/gim;
 
-function isSignedDocument(invoice = {}) {
-  return Boolean(
-    String(invoice.customer_signature || '').trim()
-    || String(invoice.signature_date || '').trim()
-  );
-}
-
-function shouldApplyRefundAfterSedaTerms(invoice = {}) {
-  if (!isSignedDocument(invoice)) return true;
-
-  const dateKey = getInvoicePolicyDateKey(invoice);
-  return Boolean(dateKey && dateKey >= EFFECTIVE_DATE_KEY);
-}
-
-function applyRefundTermsToText(termsText, applyPolicy) {
+function applyRefundTermsToText(termsText) {
   const text = String(termsText || '');
-  if (!applyPolicy || !text) return text;
+  if (!text) return text;
 
   return text.replace(
     REFUND_AFTER_SEDA_LINE_PATTERN,
@@ -43,12 +27,12 @@ function applyRefundTermsToText(termsText, applyPolicy) {
   );
 }
 
-function applyRefundTermsPolicy(invoice = {}, template = {}) {
+function applyRefundTermsPolicy(_invoice = {}, template = {}) {
   const templateData = { ...(template || {}) };
   const originalTerms = templateData.terms_and_conditions || '';
 
   if (originalTerms) {
-    templateData.terms_and_conditions = applyRefundTermsToText(originalTerms, shouldApplyRefundAfterSedaTerms(invoice));
+    templateData.terms_and_conditions = applyRefundTermsToText(originalTerms);
   }
 
   return templateData;
@@ -64,10 +48,8 @@ function applyRefundTermsPolicyToInvoice(invoice = {}) {
 }
 
 module.exports = {
-  EFFECTIVE_DATE_KEY,
   REFUND_AFTER_SEDA_AMOUNT,
   applyRefundTermsPolicy,
   applyRefundTermsPolicyToInvoice,
-  applyRefundTermsToText,
-  shouldApplyRefundAfterSedaTerms
+  applyRefundTermsToText
 };
