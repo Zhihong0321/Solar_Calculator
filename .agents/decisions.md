@@ -7,6 +7,19 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-11-23 — Refund after SEDA = amount paid minus RM1500, applied at render time to every document
+
+- made by: Claude Sonnet 5.5, at user direction
+- reason: the refund-after-SEDA paragraph listed itemised deductions; the business rule is simply
+  "paid amount minus RM1500" (same total, simpler wording).
+- shape: new `src/modules/Invoicing/services/invoiceRefundTermsPolicy.js`, chained after the payment and
+  warranty policies in `applyInvoiceTermsPolicies` (invoiceViewRoutes.js) and `applyLegacyTermsPolicies`
+  (invoiceTncService.js). The text is rewritten when a page is shown; the DB row is not touched by code.
+- no date or signature gate: the user wants every place that shows the TNC to show the same refund wording,
+  signed documents included (a 23 Nov cut-off was tried and removed). The amount is unchanged.
+- stored copy: `scripts/update_invoice_template_refund_after_seda.sql` updates `invoice_template` row 1 and
+  must be run by someone with write access. Full TNC overview: `docs/INVOICE_TNC_MANAGEMENT.md`.
+
 ## 2026-09-14 — Customer-ID portal endpoint added for a separate client-facing PWA
 
 - made by: Claude Sonnet 5, at user direction
