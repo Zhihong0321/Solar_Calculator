@@ -15,6 +15,8 @@ const EFFECTIVE_DATE_KEY = '2026-08-01';
 const WARRANTY_POLICY_HEADING = 'WARRANTY POLICY';
 const REFUND_POLICY_HEADING_PATTERN = /^[ \t]*REFUND POLICY[ \t]*$/mi;
 const WARRANTY_POLICY_HEADING_PATTERN = /^[ \t]*WARRANTY POLICY[ \t]*$/mi;
+// Top-level section headings that can follow the warranty section.
+const NEXT_SECTION_HEADING_PATTERN = /^[ \t]*(?:REFUND POLICY|PAYMENT TERMS|PRIVACY POLICY)[ \t]*$/mi;
 
 const WARRANTY_REPAIRS_CLAUSE_TITLE = 'Warranty Repairs and Unauthorised Works';
 
@@ -55,15 +57,29 @@ function hasWarrantyRepairsClause(termsText) {
 }
 
 /**
- * The WARRANTY POLICY section runs until the REFUND POLICY heading, so the new sub-section is
- * placed immediately before that heading. Without a REFUND POLICY heading the warranty section
- * runs to the end of the document and the clause is appended there instead.
+ * The clause goes at the end of the WARRANTY POLICY section: immediately before the next section
+ * heading that follows it (REFUND POLICY in the old layout, PRIVACY POLICY or PAYMENT TERMS in the
+ * regrouped layout), or at the end of the document when the warranty section is the last one.
+ * With no WARRANTY POLICY heading at all, it goes before the REFUND POLICY heading, else is appended.
  */
 function insertWarrantyRepairsClause(termsText) {
   const text = String(termsText || '').trim();
 
   if (!text) {
     return `${WARRANTY_POLICY_HEADING}\n\n${WARRANTY_REPAIRS_CLAUSE}`;
+  }
+
+  const warrantyHeadingMatch = text.match(WARRANTY_POLICY_HEADING_PATTERN);
+  if (warrantyHeadingMatch) {
+    const afterHeading = warrantyHeadingMatch.index + warrantyHeadingMatch[0].length;
+    const nextSection = text.slice(afterHeading).match(NEXT_SECTION_HEADING_PATTERN);
+    if (nextSection) {
+      const splitAt = afterHeading + nextSection.index;
+      const head = text.slice(0, splitAt).replace(/\s+$/, '');
+      const tail = text.slice(splitAt);
+      return `${head}\n\n${WARRANTY_REPAIRS_CLAUSE}\n\n${tail}`;
+    }
+    return `${text}\n\n${WARRANTY_REPAIRS_CLAUSE}`;
   }
 
   const refundHeading = text.match(REFUND_POLICY_HEADING_PATTERN);

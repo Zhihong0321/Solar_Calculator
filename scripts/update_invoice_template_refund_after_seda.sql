@@ -1,3 +1,4 @@
+-- SUPERSEDED by scripts/update_invoice_template_tnc_regrouped.sql (its text already includes this change). Running both is harmless.
 -- Refund after SEDA approval = amount paid minus RM1500.
 -- Updates ONLY the "5% + N% Refund (After SEDA Application)" paragraph of
 -- invoice_template.terms_and_conditions for row id = 1 (template "Eternalgy"). Nothing else in the text changes.

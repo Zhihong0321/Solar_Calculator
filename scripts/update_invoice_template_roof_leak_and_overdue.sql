@@ -1,3 +1,4 @@
+-- SUPERSEDED by scripts/update_invoice_template_tnc_regrouped.sql (its text already includes this change). Running both is harmless.
 -- Two TNC changes to invoice_template row id = 1 (template "Eternalgy"), run together in one transaction:
 --   1. Roof Leaking Warranty = 6 months:
 --        "During the period of the warranty where ..."  ->  "During the 6-month warranty period where ..."

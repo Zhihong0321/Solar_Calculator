@@ -66,6 +66,26 @@ To update the stored copy too (so any other system reading the same row shows th
   checks, end with `COMMIT;` or `ROLLBACK;`). Tests: `scripts/test_invoice_roof_leak_warranty_terms_policy.js`,
   `scripts/test_invoice_overdue_payment_terms_policy.js`.
 
+## Regrouped layout (2026-11-24)
+
+The stored text is regrouped into four sections: **PAYMENT TERMS**, **REFUND POLICY**, **WARRANTY POLICY**,
+**PRIVACY POLICY** (full text: `docs/INVOICE_TNC_REGROUPED_DRAFT.txt`). Every term is kept word for word; the only
+two changed lines are "Our Payment Terms:" (now the section heading "PAYMENT TERMS") and "Our Refund Policy:" (now
+"Refund Rules:"). "Warranty Coverage:" moved from the refund section to the end of the warranty section.
+
+- One script does it all: `scripts/update_invoice_template_tnc_regrouped.sql` (backs the old text up into
+  `invoice_template_terms_backup`, updates row 1, before/after checks, end with `COMMIT;` or `ROLLBACK;`). Its text
+  already contains the refund, 6-month and overdue wording and the warranty clause, so the two earlier SQL scripts
+  are no longer needed.
+- The rules work on both layouts, so deploy and SQL can happen in either order: the payment rule recognises the
+  "PAYMENT TERMS" heading (no duplicate block), the warranty clause goes at the end of the warranty section, and the
+  overdue line goes after the last installation-payment paragraph when "Our Refund Policy:" is absent.
+- `scripts/test_invoice_tnc_regrouped_structure.js` proves it against the production text
+  (`scripts/fixtures/invoice_template_terms_2026-10-20.txt`, md5 `db391435889ba60333dbe8b0d8d29461`).
+- Known quirk (already there before): for invoices dated before 1 Jul 2026 the "20% After Installation Complete:"
+  heading is not rewritten to 35%, while the sentence "The remaining 35%..." is.
+- After the SQL runs, the warranty clause is stored, so signed documents dated before 1 Aug 2026 also show it.
+
 ## How to change the TNC next time
 
 - Small wording change, same for everyone: update the paragraph in `invoice_template` row 1 with SQL.
@@ -84,8 +104,8 @@ falls back to the rules above. If it ships, put the refund wording above into it
 ## Status (2026-11-24)
 
 - Refund rule committed and pushed (`2bcf203`, `e0102d4`), not deployed.
-- Roof leak 6 months and overdue 2%/month rules written and tested, not committed or deployed.
-- Row 1 SQL (`update_invoice_template_refund_after_seda.sql` and `update_invoice_template_roof_leak_and_overdue.sql`)
-  not yet run on production.
+- Roof leak 6 months and overdue 2%/month rules committed (`2bbe7b7`), not pushed or deployed.
+- Regrouped layout: rule fixes, SQL, draft and tests written and tested, not committed or deployed.
+- Row 1 SQL (`update_invoice_template_tnc_regrouped.sql`) not yet run on production.
 - Until both are done, customers still see the old refund wording.
 - A second system that reads the same database (if any) shows the new wording only after the SQL runs.

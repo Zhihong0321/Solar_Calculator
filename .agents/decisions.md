@@ -7,6 +7,19 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-11-24 — TNC regrouped into four sections (Payment Terms, Refund Policy, Warranty Policy, Privacy Policy)
+
+- made by: Claude Sonnet 5.5, at user direction ("group similar section under same section, must keep all terms intact")
+- reason: "REFUND POLICY" held payment terms, warranty coverage and refund rules, and had a sub-heading
+  "Our Refund Policy:" that looked like a duplicate.
+- shape: every term kept word for word; only "Our Payment Terms:" -> heading "PAYMENT TERMS" and
+  "Our Refund Policy:" -> "Refund Rules:" changed; "Warranty Coverage:" moved into WARRANTY POLICY.
+  Text: `docs/INVOICE_TNC_REGROUPED_DRAFT.txt`; stored by `scripts/update_invoice_template_tnc_regrouped.sql`.
+- code: the render-time rules were made layout-independent (payment rule accepts the "PAYMENT TERMS" heading;
+  warranty clause goes at the end of the warranty section; overdue line falls back to after the last payment
+  paragraph). `scripts/test_invoice_tnc_regrouped_structure.js` checks both layouts against the production text
+  fixture, so deploy and SQL can happen in either order.
+
 ## 2026-11-24 — Roof leak warranty = 6 months, overdue payment = 2%/month interest (TNC, render time, all documents)
 
 - made by: Claude Sonnet 5.5, at user direction

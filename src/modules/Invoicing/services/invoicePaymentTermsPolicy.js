@@ -114,8 +114,10 @@ function replacePaymentPercentages(source, terms) {
     .replace(/\bThe\s+(?:35|20)%\s+payment\s+made\b/gi, `The ${installation} payment made`);
 }
 
+// Old layout: "Our Payment Terms:" inside REFUND POLICY. Regrouped layout: its own "PAYMENT TERMS" section.
 function hasPaymentTermsBlock(termsText) {
-  return /Our\s+Payment\s+Terms\s*:/i.test(String(termsText || ''));
+  const text = String(termsText || '');
+  return /Our\s+Payment\s+Terms\s*:/i.test(text) || /^[ \t]*PAYMENT\s+TERMS[ \t]*$/im.test(text);
 }
 
 function applyPaymentTermsToText(termsText, useCurrentTerms) {
