@@ -7,6 +7,18 @@
 
 <!-- Add new entries at the top, below this line -->
 
+## 2026-11-24 — Roof leak warranty = 6 months, overdue payment = 2%/month interest (TNC, render time, all documents)
+
+- made by: Claude Sonnet 5.5, at user direction
+- shape: two more render-time rules chained after the refund rule in `applyInvoiceTermsPolicies`
+  (invoiceViewRoutes.js) and `applyLegacyTermsPolicies` (invoiceTncService.js):
+  `invoiceRoofLeakWarrantyTermsPolicy.js` (adds "6-month" to the Roof Leaking Warranty paragraph) and
+  `invoiceOverduePaymentTermsPolicy.js` (adds the "Overdue Payment" line at the end of Our Payment Terms).
+  Both apply to every document, same reasoning as the refund rule. DB row is updated by
+  `scripts/update_invoice_template_roof_leak_and_overdue.sql`, run by someone with write access.
+- known gap: the document's "Warranty" box reads `product.product_warranty_desc` ("1 Year Roof Leaking
+  Warranty") and was not changed; "overdue" has no defined due date in the TNC.
+
 ## 2026-11-23 — Refund after SEDA = amount paid minus RM1500, applied at render time to every document
 
 - made by: Claude Sonnet 5.5, at user direction

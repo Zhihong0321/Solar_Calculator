@@ -14,6 +14,8 @@ const { loadPreviewSnapshot } = require('../services/invoicePreviewStore');
 const { applyPaymentTermsPolicyToInvoice } = require('../services/invoicePaymentTermsPolicy');
 const { applyWarrantyTermsPolicyToInvoice } = require('../services/invoiceWarrantyTermsPolicy');
 const { applyRefundTermsPolicyToInvoice } = require('../services/invoiceRefundTermsPolicy');
+const { applyRoofLeakWarrantyPolicyToInvoice } = require('../services/invoiceRoofLeakWarrantyTermsPolicy');
+const { applyOverduePaymentPolicyToInvoice } = require('../services/invoiceOverduePaymentTermsPolicy');
 const { renderHtmlToPdf } = require('../services/pdfRenderer');
 const { normalizeSolarEstimateFields } = require('../services/solarEstimateValues');
 const { calculateSolarSavings } = require('../../SolarCalculator/services/solarCalculatorService');
@@ -750,9 +752,13 @@ function getPaymentTermsPolicyOptions(req) {
  * policy only has to be added here instead of at each generator call site.
  */
 function applyInvoiceTermsPolicies(invoice, req) {
-  return applyRefundTermsPolicyToInvoice(
-    applyWarrantyTermsPolicyToInvoice(
-      applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req))
+  return applyOverduePaymentPolicyToInvoice(
+    applyRoofLeakWarrantyPolicyToInvoice(
+      applyRefundTermsPolicyToInvoice(
+        applyWarrantyTermsPolicyToInvoice(
+          applyPaymentTermsPolicyToInvoice(invoice, getPaymentTermsPolicyOptions(req))
+        )
+      )
     )
   );
 }

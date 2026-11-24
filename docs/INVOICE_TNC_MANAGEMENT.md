@@ -20,6 +20,8 @@ Applied in this order by `applyInvoiceTermsPolicies` in
 | 1 | Payment terms: 5% / 60% / 35% before 1 Jul 2026, 5% / 75% / 20% from 1 Jul 2026 (by invoice date) | `services/invoicePaymentTermsPolicy.js` | by invoice date |
 | 2 | "Warranty Repairs and Unauthorised Works" clause, inserted before the REFUND POLICY heading | `services/invoiceWarrantyTermsPolicy.js` | all unsigned quotations; signed ones only if dated 1 Aug 2026 or later |
 | 3 | Refund after SEDA approval = **amount paid minus RM1500** (rewrites the "5% + N% Refund (After SEDA Application)" paragraph, keeps its own percentage) | `services/invoiceRefundTermsPolicy.js` | every document, signed or not, any date |
+| 4 | Roof Leaking Warranty = **6 months** ("During the period of the warranty where…" becomes "During the 6-month warranty period where…", only under the "Roof Leaking Warranty" heading) | `services/invoiceRoofLeakWarrantyTermsPolicy.js` | every document |
+| 5 | Overdue payment = **2%/month interest**: line "Overdue Payment: For overdue payment there will be a 2%/month interest." added at the end of "Our Payment Terms", before "Our Refund Policy:" | `services/invoiceOverduePaymentTermsPolicy.js` | every document |
 
 Every rule is idempotent (text that already has the change is left alone), and returns the text
 untouched if its paragraph is not found. A missing paragraph never stops a document from rendering.
@@ -52,10 +54,22 @@ To update the stored copy too (so any other system reading the same row shows th
 `scripts/update_invoice_template_refund_after_seda.sql` (transaction with before/after checks; end it with
 `COMMIT;` or `ROLLBACK;`). Tests: `node scripts/test_invoice_refund_terms_policy.js`.
 
+## Roof leak warranty and overdue interest (changed 2026-11-24)
+
+- Roof Leaking Warranty is 6 months. The "Workmanship Warranty" paragraph has similar words and is not touched.
+- Overdue payment carries 2%/month interest. The TNC does not define a payment due date or a number of days
+  (the final payment is "due upon the completion of the installation"), so "overdue" has no fixed start yet.
+- **The "Warranty" box on the document is separate.** It comes from `product.product_warranty_desc` (products
+  "Installation" and "Workmanship"), which currently reads "1 Year Roof Leaking Warranty / 3 Years Workmanship
+  Warranty". It still says 1 Year until that product text is changed (not done).
+- Stored copy: run `scripts/update_invoice_template_roof_leak_and_overdue.sql` (one transaction, before/after
+  checks, end with `COMMIT;` or `ROLLBACK;`). Tests: `scripts/test_invoice_roof_leak_warranty_terms_policy.js`,
+  `scripts/test_invoice_overdue_payment_terms_policy.js`.
+
 ## How to change the TNC next time
 
 - Small wording change, same for everyone: update the paragraph in `invoice_template` row 1 with SQL.
-- Must differ by date or signed status: add a rule like the three above, and register it in
+- Must differ by date or signed status: add a rule like the five above, and register it in
   `applyInvoiceTermsPolicies` (and in `applyLegacyTermsPolicies` in `services/invoiceTncService.js`).
 - Check every place in the table above shows it, and add a script test next to the others in `scripts/`.
 
@@ -67,9 +81,11 @@ To update the stored copy too (so any other system reading the same row shows th
 when the customer signs. **The table does not exist in production**, so it does nothing today and the code
 falls back to the rules above. If it ships, put the refund wording above into its first version.
 
-## Status (2026-11-23)
+## Status (2026-11-24)
 
-- Refund rule committed (`2bcf203`, `e0102d4`), not deployed.
-- Row 1 SQL not yet run on production.
+- Refund rule committed and pushed (`2bcf203`, `e0102d4`), not deployed.
+- Roof leak 6 months and overdue 2%/month rules written and tested, not committed or deployed.
+- Row 1 SQL (`update_invoice_template_refund_after_seda.sql` and `update_invoice_template_roof_leak_and_overdue.sql`)
+  not yet run on production.
 - Until both are done, customers still see the old refund wording.
 - A second system that reads the same database (if any) shows the new wording only after the SQL runs.
