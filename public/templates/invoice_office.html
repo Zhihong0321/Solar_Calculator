@@ -364,7 +364,7 @@
                     <div class="section-header">
                         <h2 class="section-title">Quotation Section</h2>
                         <div class="flex flex-wrap items-center justify-end gap-2">
-                            <button id="tnbSubsidyBtn" onclick="openTnbSubsidyModal()" class="btn-action border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold">TNB Bill Subsidy Promo</button>
+                            <button id="tnbSubsidyBtn" onclick="openTnbSubsidyModal()" class="btn-action" style="background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;font-weight:700">TNB Bill Subsidy Promo</button>
                             <button onclick="openInvoicePreview()" class="btn-action border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">View Invoice</button>
                             <button onclick="goToEdit()" class="btn-action btn-primary">Edit Invoice</button>
                         </div>
@@ -2417,7 +2417,7 @@
                 <div>
                     <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">2. Subsidy days</p>
                     <div class="flex items-center gap-3">
-                        <input id="tnbSubsidyDays" type="range" min="0" max="${d.max_days}" step="1" value="${d.days}" class="flex-1 accent-amber-600" oninput="updateTnbSubsidyPreview()">
+                        <input id="tnbSubsidyDays" type="range" min="0" max="${d.max_days}" step="1" value="${d.days}" class="flex-1" style="accent-color:#D97706" oninput="updateTnbSubsidyPreview()">
                         <span id="tnbSubsidyDaysLabel" class="w-16 text-right text-sm font-black text-slate-900">${d.days} days</span>
                     </div>
                     <div class="flex justify-between text-[10px] text-slate-400 font-bold mt-1"><span>0</span><span>30</span><span>${d.max_days}</span></div>
