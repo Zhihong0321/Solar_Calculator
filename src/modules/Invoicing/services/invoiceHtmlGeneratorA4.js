@@ -570,6 +570,11 @@ function renderCoverPage({ invoice, template, copy, ai4, components, monoBadge }
                   <td class="a4-totals-l">${escapeHtml(ai4.voucher)}</td>
                   <td class="a4-totals-v disc">${formatSignedMoney(-Math.abs(components.voucher))}</td>
                 </tr>` : ''}
+              ${components.tnbSubsidy > 0 ? `
+                <tr style="background:#fef3c7">
+                  <td class="a4-totals-l" style="color:#b45309;font-weight:800">TNB Bill Subsidy Promo</td>
+                  <td class="a4-totals-v disc" style="color:#b45309;font-weight:900">${formatSignedMoney(-Math.abs(components.tnbSubsidy))}</td>
+                </tr>` : ''}
               ${components.sst > 0 ? `
                 <tr>
                   <td class="a4-totals-l">${escapeHtml(ai4.tax)}</td>
@@ -582,6 +587,19 @@ function renderCoverPage({ invoice, template, copy, ai4, components, monoBadge }
             </tbody>
           </table>
         </div>
+
+        ${components.tnbSubsidy > 0 ? `
+        <div style="margin-top:10px;border:2px solid #f59e0b;border-radius:10px;background:#fffbeb;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <div style="font-size:8pt;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#b45309">TNB Bill Subsidy Promo</div>
+            <div style="font-size:8pt;color:#78350f;margin-top:2px">${components.tnbSubsidyPanels} panels × ${components.tnbSubsidyDays} days × RM${components.tnbSubsidyRate.toFixed(2)} / day / panel</div>
+            <div style="font-size:7pt;color:#92400e;margin-top:3px">Subsidy period = deposit day until finish installation or max 60 days. TNC: must submit 2 month TNB bill after deposit date. Valid until 31 Dec 2026.</div>
+          </div>
+          <div style="text-align:right;white-space:nowrap">
+            <div style="font-size:7pt;font-weight:800;text-transform:uppercase;color:#b45309">Subsidised</div>
+            <div style="font-size:15pt;font-weight:900;color:#b45309">${formatMoney(components.tnbSubsidy)}</div>
+          </div>
+        </div>` : ''}
 
         ${renderPageFooter({
           leftText: ai4.pageFooter,
@@ -1671,8 +1689,11 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
   const holidayBoostAmount = Number(invoice.holiday_boost_amount) || 0;
   const earnNowRebateAmount = Number(invoice.earn_now_rebate_amount) || 0;
   const earthMonthGoGreenBonusAmount = Number(invoice.earth_month_go_green_bonus_amount) || 0;
+  const tnbBillSubsidyAmount = Number(invoice.tnb_bill_subsidy_amount) || 0;
+  const tnbSubsidyInfo = invoice.tnb_bill_subsidy || {};
   const subtotal = totalAmount - sstAmount + discountAmount + voucherAmount
-    + cnyPromoAmount + holidayBoostAmount + earnNowRebateAmount + earthMonthGoGreenBonusAmount;
+    + cnyPromoAmount + holidayBoostAmount + earnNowRebateAmount + earthMonthGoGreenBonusAmount
+    + tnbBillSubsidyAmount;
 
   const estimate = normalizeSolarEstimateFields({
     customerAverageTnb: invoice.customer_average_tnb,
@@ -1690,6 +1711,10 @@ function generateInvoiceHtmlA4(invoice, template, options = {}) {
     subtotal,
     discount: discountAmount,
     voucher: voucherAmount,
+    tnbSubsidy: tnbBillSubsidyAmount,
+    tnbSubsidyPanels: parseInt(tnbSubsidyInfo.panel_qty, 10) || 0,
+    tnbSubsidyDays: parseInt(tnbSubsidyInfo.days, 10) || 0,
+    tnbSubsidyRate: Number(tnbSubsidyInfo.rate) || 0.75,
     sst: sstAmount,
     total: totalAmount,
     showPreSiteVisitReminder

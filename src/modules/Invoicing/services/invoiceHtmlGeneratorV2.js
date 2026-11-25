@@ -178,6 +178,11 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
     const holidayBoostAmount = parseFloat(invoice.holiday_boost_amount) || 0;
     const earnNowRebateAmount = parseFloat(invoice.earn_now_rebate_amount) || 0;
     const earthMonthGoGreenBonusAmount = parseFloat(invoice.earth_month_go_green_bonus_amount) || 0;
+    const tnbBillSubsidyAmount = parseFloat(invoice.tnb_bill_subsidy_amount) || 0;
+    const tnbSubsidyInfo = invoice.tnb_bill_subsidy || {};
+    const tnbSubsidyPanels = parseInt(tnbSubsidyInfo.panel_qty, 10) || 0;
+    const tnbSubsidyDays = parseInt(tnbSubsidyInfo.days, 10) || 0;
+    const tnbSubsidyRate = Number(tnbSubsidyInfo.rate) || 0.75;
 
     const normalizedEstimate = normalizeSolarEstimateFields({
         customerAverageTnb: invoice.customer_average_tnb,
@@ -230,7 +235,8 @@ function generateInvoiceHtmlV2(invoice, template, options = {}) {
         + cnyPromoAmount
         + holidayBoostAmount
         + earnNowRebateAmount
-        + earthMonthGoGreenBonusAmount;
+        + earthMonthGoGreenBonusAmount
+        + tnbBillSubsidyAmount;
 
     // Company info
     const companyName = templateData.company_name || 'Eternalgy Solar Sdn. Bhd.';
@@ -932,6 +938,27 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
         </div>
       </div>
 
+      <!-- TNB BILL SUBSIDY PROMO -->
+      ${tnbBillSubsidyAmount > 0 ? `
+      <div class="sw anim">
+        <div style="border:2px solid #f59e0b;border-radius:16px;background:linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);padding:14px 16px;box-shadow:0 4px 14px rgba(245,158,11,.18)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <div>
+              <div style="font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#b45309">TNB Bill Subsidy Promo</div>
+              <div style="font-size:11px;color:#78350f;margin-top:3px">${tnbSubsidyPanels} panels × ${tnbSubsidyDays} days × RM${tnbSubsidyRate.toFixed(2)} / day / panel</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#b45309">You save</div>
+              <div style="font-size:24px;font-weight:900;color:#b45309;line-height:1.1">${fmtMoney(tnbBillSubsidyAmount)}</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px dashed #f59e0b;font-size:9.5px;line-height:1.5;color:#92400e">
+            Subsidy period = deposit day until finish installation or max 60 days. TNC: must submit 2 month TNB bill after deposit date. Promotion valid until 31 Dec 2026.
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
       <!-- TOTALS -->
       <div class="sw anim">
         <div class="totals">
@@ -976,6 +1003,11 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             <div class="totals-row">
               <span class="lbl">Earth Month Go Green Bonus</span>
               <span class="val" style="color:var(--gp)">−${fmtMoney(earthMonthGoGreenBonusAmount)}</span>
+            </div>` : ''}
+            ${tnbBillSubsidyAmount > 0 ? `
+            <div class="totals-row" style="background:#fef3c7;border-radius:6px;padding-left:6px;padding-right:6px">
+              <span class="lbl" style="color:#b45309;font-weight:800">TNB Bill Subsidy Promo</span>
+              <span class="val" style="color:#b45309;font-weight:900">−${fmtMoney(tnbBillSubsidyAmount)}</span>
             </div>` : ''}
             ${sstAmount > 0 ? `
             <div class="totals-row">

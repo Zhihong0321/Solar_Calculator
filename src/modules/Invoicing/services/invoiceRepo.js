@@ -7,6 +7,7 @@
  * Performance Note: Uses atomic updates for invoice number generation to prevent race conditions.
  */
 const crypto = require('crypto');
+const tnbBillSubsidy = require('./tnbBillSubsidy');
 const { resolveMicroInverterWarrantyProduct } = require('./invoiceMicroInverterWarrantySupport');
 const {
   calculateInvoiceFinancials,
@@ -893,6 +894,17 @@ async function getInvoiceByBubbleId(client, bubbleId) {
     invoice.voucher_amount = invoice.items
       .filter(item => item.item_type === 'voucher')
       .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+
+    invoice.tnb_bill_subsidy_amount = invoice.items
+      .filter(item => item.item_type === tnbBillSubsidy.ITEM_TYPE)
+      .reduce((sum, item) => sum + Math.abs(parseFloat(item.total_price) || 0), 0);
+    if (invoice.tnb_bill_subsidy_amount > 0) {
+      const subsidyRow = await tnbBillSubsidy.getSubsidyRowSafe(client, invoice.bubble_id || bubbleId);
+      invoice.tnb_bill_subsidy = tnbBillSubsidy.toPublicSummary(subsidyRow || { amount: invoice.tnb_bill_subsidy_amount });
+      invoice.tnb_bill_subsidy.amount = invoice.tnb_bill_subsidy_amount;
+    } else {
+      invoice.tnb_bill_subsidy = null;
+    }
 
     // Queries 3-6: Run in parallel if possible
     const parallelQueries = [];
@@ -2011,6 +2023,8 @@ async function updateInvoiceTransaction(client, data) {
     // We stick to delete/insert here but ensure they keep the same linked_invoice (UID)
     await client.query('DELETE FROM invoice_item WHERE linked_invoice = $1', [bubbleId]);
     await _createLineItems(client, bubbleId, data, financials, { pkg, linkedAgent }, voucherInfo);
+    // TNB Bill Subsidy lives in its own table; put its line back after the rebuild.
+    await tnbBillSubsidy.reapplyAfterInvoiceRebuild(client, bubbleId);
 
     await syncReferralInvoiceLink(client, bubbleId, data.linkedReferral);
 

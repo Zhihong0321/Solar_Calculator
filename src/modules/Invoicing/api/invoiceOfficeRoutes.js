@@ -5,6 +5,7 @@ const { getAuthenticatedUserId } = require('./authUser');
 const invoiceRepo = require('../services/invoiceRepo');
 const { ownershipFiles } = require('../services/sedaOwnershipFiles');
 const { writeInvoiceAuditEntry } = require('../services/auditWriter');
+const tnbBillSubsidy = require('../services/tnbBillSubsidy');
 const {
     createUploader,
     storageDriver,
@@ -1299,6 +1300,187 @@ router.post('/api/v1/invoice-office/:bubbleId/items/:itemId/hybrid-upgrade', req
     } catch (err) {
         if (client) await client.query('ROLLBACK').catch(() => {});
         console.error('[hybrid-upgrade-apply]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+// ---------------------------------------------------------------------------
+// TNB Bill Subsidy Promo (until 31 Dec 2026): RM0.75 / panel / day, 0-60 days.
+// ---------------------------------------------------------------------------
+let tnbSubsidyUploader = null;
+function getTnbSubsidyUploader() {
+    if (tnbSubsidyUploader) return tnbSubsidyUploader;
+    tnbSubsidyUploader = createUploader({
+        storageSubdir: 'tnb_bill_subsidy',
+        allowedMimes: ['image/*', 'application/pdf'],
+        maxFileSizeMB: 15,
+        storage: 'memory',
+        generateFilename: (req, file) => {
+            const rand = require('crypto').randomBytes(4).toString('hex');
+            return `tnb_subsidy_bill_${req.params.bubbleId}_${Date.now()}_${rand}${fileExtension(file)}`;
+        }
+    });
+    return tnbSubsidyUploader;
+}
+
+async function loadTnbSubsidyContext(client, req, res) {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return null;
+    }
+    const access = await getInvoiceAccess(client, req.params.bubbleId, userId);
+    if (!access.found) {
+        res.status(404).json({ success: false, error: 'Invoice not found' });
+        return null;
+    }
+    if (!access.isOwner) {
+        res.status(403).json({ success: false, error: 'Access denied' });
+        return null;
+    }
+    return { userId };
+}
+
+async function tnbSubsidySummary(client, bubbleId) {
+    const row = await tnbBillSubsidy.getSubsidyRow(client, bubbleId);
+    const livePanelQty = await tnbBillSubsidy.getInvoicePanelQty(client, bubbleId);
+    const summary = tnbBillSubsidy.toPublicSummary(row, livePanelQty);
+    if (!row || !(parseFloat(row.amount) > 0)) {
+        summary.panel_qty = livePanelQty;
+        summary.max_amount = tnbBillSubsidy.computeAmount(livePanelQty, tnbBillSubsidy.MAX_DAYS);
+    }
+    const inv = await client.query('SELECT total_amount FROM invoice WHERE bubble_id = $1', [bubbleId]);
+    summary.invoice_total = parseFloat(inv.rows[0]?.total_amount) || 0;
+    summary.notes = [];
+    if (!summary.panel_qty) summary.notes.push('Panel quantity not found on this invoice package, so the subsidy works out to RM0.');
+    if (summary.tnb_bill_urls.length === 0) summary.notes.push('No TNB bill uploaded yet.');
+    if (!summary.promo_active) summary.notes.push(`Promo period ended ${tnbBillSubsidy.PROMO_END_DATE}.`);
+    return summary;
+}
+
+router.get('/api/v1/invoice-office/:bubbleId/tnb-bill-subsidy', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        const ctx = await loadTnbSubsidyContext(client, req, res);
+        if (!ctx) return;
+        res.json({ success: true, data: await tnbSubsidySummary(client, req.params.bubbleId) });
+    } catch (err) {
+        console.error('[tnb-bill-subsidy:get]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+router.post('/api/v1/invoice-office/:bubbleId/tnb-bill-subsidy/bill', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        const ctx = await loadTnbSubsidyContext(client, req, res);
+        if (!ctx) return;
+
+        const multerErr = await getTnbSubsidyUploader()(req, res);
+        if (multerErr) {
+            const tooLarge = multerErr.code === 'LIMIT_FILE_SIZE';
+            return res.status(tooLarge ? 413 : 400).json({ success: false, error: tooLarge ? 'TNB bill: file too large (max 15 MB).' : (multerErr.message || 'Upload failed.') });
+        }
+        if (!req.file) return res.status(400).json({ success: false, error: 'No file received. Please choose the TNB bill.' });
+
+        const mime = resolvedMime(req.file);
+        const isPdf = mime === 'application/pdf' || /\.pdf$/i.test(req.file.originalname || '');
+        const stored = await storageDriver.put(req.file.buffer, {
+            subdir: 'tnb_bill_subsidy',
+            filename: req.file.filename,
+            mimeType: mime,
+            req,
+            optimize: !isPdf,
+        });
+
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+        try {
+            await beginAgentAuditTransaction(client, auditContext);
+            await tnbBillSubsidy.addSubsidyBillUrl(client, req.params.bubbleId, stored.url, ctx.userId);
+            await client.query('COMMIT');
+        } catch (dbErr) {
+            await client.query('ROLLBACK').catch(() => {});
+            await storageDriver.remove(stored.url, { subdir: 'tnb_bill_subsidy' }).catch(() => {});
+            throw dbErr;
+        }
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: req.params.bubbleId,
+            entityType: 'invoice_upload',
+            actionType: 'ADDED',
+            changes: [{ field: 'TNB Bill Subsidy - TNB Bill', after: stored.url }],
+            actorName: auditContext?.userName,
+            actorPhone: auditContext?.userPhone,
+            actorRole: auditContext?.userRole,
+        }).catch((e) => console.error('[tnb-bill-subsidy:bill] audit log failed:', e.message));
+
+        res.json({ success: true, url: stored.url, data: await tnbSubsidySummary(client, req.params.bubbleId) });
+    } catch (err) {
+        console.error('[tnb-bill-subsidy:bill]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+router.delete('/api/v1/invoice-office/:bubbleId/tnb-bill-subsidy/bill', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        const ctx = await loadTnbSubsidyContext(client, req, res);
+        if (!ctx) return;
+        const url = String(req.body?.url || '').trim();
+        if (!url) return res.status(400).json({ success: false, error: 'url is required' });
+        await tnbBillSubsidy.removeSubsidyBillUrl(client, req.params.bubbleId, url, ctx.userId);
+        res.json({ success: true, data: await tnbSubsidySummary(client, req.params.bubbleId) });
+    } catch (err) {
+        console.error('[tnb-bill-subsidy:bill-delete]', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (client) client.release();
+    }
+});
+
+router.put('/api/v1/invoice-office/:bubbleId/tnb-bill-subsidy', requireAuth, async (req, res) => {
+    let client = null;
+    try {
+        client = await pool.connect();
+        const ctx = await loadTnbSubsidyContext(client, req, res);
+        if (!ctx) return;
+
+        const before = await tnbBillSubsidy.getSubsidyRow(client, req.params.bubbleId);
+        const auditContext = await resolveAgentAuditContext(client, req.user);
+        let after;
+        try {
+            await beginAgentAuditTransaction(client, auditContext);
+            after = await tnbBillSubsidy.setSubsidyDays(client, req.params.bubbleId, req.body?.days, ctx.userId);
+            await client.query('COMMIT');
+        } catch (dbErr) {
+            await client.query('ROLLBACK').catch(() => {});
+            throw dbErr;
+        }
+        await writeInvoiceAuditEntry(client, {
+            invoiceBubbleId: req.params.bubbleId,
+            entityType: 'invoice',
+            actionType: 'UPDATED',
+            changes: [{
+                field: 'TNB Bill Subsidy',
+                before: before ? `${before.days} days / RM ${parseFloat(before.amount || 0).toFixed(2)}` : null,
+                after: `${after.days} days / RM ${parseFloat(after.amount || 0).toFixed(2)}`
+            }],
+            actorName: auditContext?.userName,
+            actorPhone: auditContext?.userPhone,
+            actorRole: auditContext?.userRole,
+        }).catch((e) => console.error('[tnb-bill-subsidy:put] audit log failed:', e.message));
+
+        res.json({ success: true, data: await tnbSubsidySummary(client, req.params.bubbleId) });
+    } catch (err) {
+        console.error('[tnb-bill-subsidy:put]', err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (client) client.release();
