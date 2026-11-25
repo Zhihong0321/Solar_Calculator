@@ -945,7 +945,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
             <div>
               <div style="font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#b45309">TNB Bill Subsidy Promo</div>
-              <div style="font-size:11px;color:#78350f;margin-top:3px">${tnbSubsidyPanels} panels × ${tnbSubsidyDays} days × RM${tnbSubsidyRate.toFixed(2)} / day / panel</div>
+              <div style="font-size:11px;color:#78350f;margin-top:3px">${tnbSubsidyPanels} panels × ${tnbSubsidyDays} days × RM${tnbSubsidyRate.toFixed(2)} / day / panel${tnbSubsidyPanels * tnbSubsidyDays * tnbSubsidyRate > tnbBillSubsidyAmount + 0.005 ? " (capped at RM1,000)" : ""}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#b45309">You save</div>
@@ -953,7 +953,7 @@ body{font-family:var(--f);color:var(--g900);background:#bbf7d0;min-height:100vh;
             </div>
           </div>
           <div style="margin-top:10px;padding-top:8px;border-top:1px dashed #f59e0b;font-size:9.5px;line-height:1.5;color:#92400e">
-            Subsidy period = deposit day until finish installation or max 60 days. TNC: must submit 2 month TNB bill after deposit date. Promotion valid until 31 Dec 2026.
+            Subsidy period = deposit day until finish installation or max 60 days, max RM1,000. TNC: must submit 2 month TNB bill after deposit date. Promotion valid until 31 Dec 2026.
           </div>
         </div>
       </div>

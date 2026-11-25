@@ -16,6 +16,7 @@ const crypto = require('crypto');
 
 const RATE_PER_PANEL_PER_DAY = 0.75;
 const MAX_DAYS = 60;
+const MAX_AMOUNT = 1000; // subsidy is capped at RM1,000 per invoice
 const PROMO_END_DATE = '2026-12-31';
 const ITEM_TYPE = 'tnb_bill_subsidy';
 const ITEM_SORT = 250;
@@ -50,7 +51,8 @@ function clampDays(value) {
 function computeAmount(panelQty, days, rate = RATE_PER_PANEL_PER_DAY) {
   const panels = Math.max(0, parseInt(panelQty, 10) || 0);
   const r = Number(rate) || RATE_PER_PANEL_PER_DAY;
-  return Math.round(panels * clampDays(days) * r * 100) / 100;
+  const raw = Math.round(panels * clampDays(days) * r * 100) / 100;
+  return Math.min(raw, MAX_AMOUNT);
 }
 
 function isPromoActive(now = new Date()) {
@@ -63,7 +65,9 @@ function buildDescription(row) {
   const panels = parseInt(row.panel_qty, 10) || 0;
   const days = clampDays(row.days);
   const rate = (Number(row.rate) || RATE_PER_PANEL_PER_DAY).toFixed(2);
-  return `TNB Bill Subsidy Promo (${panels} panels × ${days} days × RM${rate})`;
+  const raw = Math.round(panels * days * Number(rate) * 100) / 100;
+  const capNote = raw > MAX_AMOUNT ? `, capped at RM${MAX_AMOUNT.toLocaleString('en-MY')}` : '';
+  return `TNB Bill Subsidy Promo (${panels} panels × ${days} days × RM${rate}${capNote})`;
 }
 
 /** Panel count from the invoice's package item, else the invoice package. */
@@ -245,6 +249,7 @@ function toPublicSummary(row, panelQtyFallback = 0) {
     max_days: MAX_DAYS,
     amount: parseFloat(row?.amount) || 0,
     max_amount: computeAmount(panelQty, MAX_DAYS, rate),
+    cap_amount: MAX_AMOUNT,
     tnb_bill_urls: Array.isArray(row?.tnb_bill_urls) ? row.tnb_bill_urls : [],
     promo_end_date: PROMO_END_DATE,
     promo_active: isPromoActive(),
@@ -255,6 +260,7 @@ function toPublicSummary(row, panelQtyFallback = 0) {
 module.exports = {
   RATE_PER_PANEL_PER_DAY,
   MAX_DAYS,
+  MAX_AMOUNT,
   PROMO_END_DATE,
   ITEM_TYPE,
   clampDays,

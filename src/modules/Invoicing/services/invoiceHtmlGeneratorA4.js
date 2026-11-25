@@ -592,8 +592,8 @@ function renderCoverPage({ invoice, template, copy, ai4, components, monoBadge }
         <div style="margin-top:10px;border:2px solid #f59e0b;border-radius:10px;background:#fffbeb;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px">
           <div>
             <div style="font-size:8pt;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#b45309">TNB Bill Subsidy Promo</div>
-            <div style="font-size:8pt;color:#78350f;margin-top:2px">${components.tnbSubsidyPanels} panels × ${components.tnbSubsidyDays} days × RM${components.tnbSubsidyRate.toFixed(2)} / day / panel</div>
-            <div style="font-size:7pt;color:#92400e;margin-top:3px">Subsidy period = deposit day until finish installation or max 60 days. TNC: must submit 2 month TNB bill after deposit date. Valid until 31 Dec 2026.</div>
+            <div style="font-size:8pt;color:#78350f;margin-top:2px">${components.tnbSubsidyPanels} panels × ${components.tnbSubsidyDays} days × RM${components.tnbSubsidyRate.toFixed(2)} / day / panel${components.tnbSubsidyPanels * components.tnbSubsidyDays * components.tnbSubsidyRate > components.tnbSubsidy + 0.005 ? " (capped at RM1,000)" : ""}</div>
+            <div style="font-size:7pt;color:#92400e;margin-top:3px">Subsidy period = deposit day until finish installation or max 60 days, max RM1,000. TNC: must submit 2 month TNB bill after deposit date. Valid until 31 Dec 2026.</div>
           </div>
           <div style="text-align:right;white-space:nowrap">
             <div style="font-size:7pt;font-weight:800;text-transform:uppercase;color:#b45309">Subsidised</div>
