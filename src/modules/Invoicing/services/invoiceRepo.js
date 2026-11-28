@@ -182,14 +182,11 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
 
       if (pkgRes.rows.length > 0) {
         const pkg = pkgRes.rows[0];
-        if (pkg.panel) productIds.push(pkg.panel);
-        const packageInverterIds = [pkg.inverter_1, pkg.inverter_2, pkg.inverter_3, pkg.inverter_4].filter(Boolean);
-        const batterySwap = await _resolveBatteryHybridWarrantySwap(client, packageInverterIds, invoiceItems);
-        packageInverterIds
-          .filter((id) => !batterySwap.dropInverterIds.has(String(id)))
-          .forEach((id) => productIds.push(id));
-        batterySwap.addProductIds.forEach((id) => productIds.push(id));
-        if (batterySwap.placeholder) warrantyPlaceholders.push(batterySwap.placeholder);
+        const packageProductIds = [];
+        if (pkg.panel) packageProductIds.push(pkg.panel);
+        [pkg.inverter_1, pkg.inverter_2, pkg.inverter_3, pkg.inverter_4]
+          .filter(Boolean)
+          .forEach((id) => packageProductIds.push(id));
 
         const linkedItems = pkg.linked_package_item;
         if (Array.isArray(linkedItems) && linkedItems.length > 0) {
@@ -198,9 +195,17 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
             [linkedItems]
           );
           itemsRes.rows.forEach(item => {
-            if (item.product) productIds.push(item.product);
+            if (item.product) packageProductIds.push(item.product);
           });
         }
+
+        // The string inverter can come from inverter_1..4 and from linked package items.
+        const batterySwap = await _resolveBatteryHybridWarrantySwap(client, packageProductIds, invoiceItems);
+        packageProductIds
+          .filter((id) => !batterySwap.dropInverterIds.has(String(id)))
+          .forEach((id) => productIds.push(id));
+        batterySwap.addProductIds.forEach((id) => productIds.push(id));
+        if (batterySwap.placeholder) warrantyPlaceholders.push(batterySwap.placeholder);
       }
     }
 
