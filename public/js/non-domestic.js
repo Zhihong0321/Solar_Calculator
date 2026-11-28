@@ -548,7 +548,35 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
     }
 
     const solarSystemCost = systemCost;
-    systemCost = solarSystemCost + batteryCost;
+
+    // A battery needs a hybrid inverter. Use the same upgrade price the quotation adds
+    // (hybrid_inverter_upgrade_rule). No price found -> labelled "price to be confirmed".
+    const inverterUpgrade = { needed: false, price: 0, priced: false, name: '', replaces: '' };
+    if (batterySize > 0 && pkg && pkg.bubble_id) {
+        inverterUpgrade.needed = true;
+        try {
+            const upgradeRes = await fetch(`/api/package/${encodeURIComponent(pkg.bubble_id)}/hybrid-upgrades`);
+            const upgradeJson = upgradeRes.ok ? await upgradeRes.json() : null;
+            const upgradeData = upgradeJson?.data || null;
+            if (upgradeData?.packageAlreadyHybrid) {
+                inverterUpgrade.needed = false;
+            } else {
+                inverterUpgrade.replaces = upgradeData?.currentInverter?.name || '';
+                const rules = Array.isArray(upgradeData?.rules) ? upgradeData.rules : [];
+                const rule = rules.find(r => (parseFloat(r?.price_amount) || 0) > 0) || null;
+                if (rule) {
+                    inverterUpgrade.priced = true;
+                    inverterUpgrade.price = parseFloat(rule.price_amount) || 0;
+                    inverterUpgrade.name = rule.to_product_name_snapshot
+                        || (rule.to_model_code ? `SAJ ${rule.to_model_code} Hybrid Inverter` : 'Hybrid Inverter');
+                }
+            }
+        } catch (err) {
+            console.warn('[Commercial battery] hybrid upgrade lookup failed:', err);
+        }
+    }
+
+    systemCost = solarSystemCost + batteryCost + inverterUpgrade.price;
 
     const payback = totalMonthlySavings > 0 ? systemCost / (totalMonthlySavings * 12) : 0;
 
@@ -579,7 +607,8 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
             monthlyDischargeKwh: monthlyBatteryKwh,
             valueAddMonthly: batteryValueAddMonthly,
             valueAddKnown: batteryValueAddKnown
-        }
+        },
+        inverterUpgrade
     };
 }
 
@@ -656,6 +685,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
     const estimatedCost = isCustomQty ? pricePerPanel * data.finalPanels : data.systemCost;
     const canCreateQuotation = Boolean(data.pkg && data.pkg.bubble_id);
     const battery = data.battery || { sizeKwh: 0, cost: 0, usableKwh: 0, dodPercent: BATTERY_DOD_PERCENT, monthlyDischargeKwh: 0, valueAddMonthly: 0, valueAddKnown: true };
+    const upgrade = data.inverterUpgrade || { needed: false, price: 0, priced: false, name: '', replaces: '' };
 
     roiContainer.innerHTML = `
         <div class="space-y-12 ${isRecalculation ? '' : 'animate-in fade-in slide-in-from-bottom-4 duration-700'}">
@@ -722,7 +752,9 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                         <div><div class="opacity-50">Battery_Value_Add</div><div class="text-sm font-bold text-emerald-400">${battery.valueAddKnown ? `+RM ${formatCurrency(battery.valueAddMonthly)}/mo` : 'Unconfirmed'}</div></div>
                         <div><div class="opacity-50">Battery_Cost</div><div class="text-sm font-bold">RM ${formatCurrency(battery.cost)}</div></div>
                     </div>
-                    <p class="text-[10px] text-amber-400 mt-3 font-semibold">* A battery needs a hybrid inverter. The current commercial packages use a string inverter, so confirm the inverter on the quotation.</p>
+                    ${upgrade.needed ? `<p class="text-[10px] text-amber-400 mt-3 font-semibold">* A battery needs a hybrid inverter. ${upgrade.priced
+                        ? `Added: ${upgrade.name}${upgrade.replaces ? ` (replaces ${upgrade.replaces})` : ''} RM ${formatCurrency(upgrade.price)}.`
+                        : `No upgrade price for ${upgrade.replaces || 'this inverter'} yet, so the hybrid inverter price is to be confirmed (not included in cost).`}</p>` : ''}
                     ` : ''}
                 </div>
 
@@ -876,7 +908,12 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                             <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
                                 <span class="text-xs uppercase opacity-60">Battery (${battery.sizeKwh} kWh)</span>
                                 <span class="text-sm font-bold">RM ${formatCurrency(battery.cost)}</span>
-                            </div>` : ''}
+                            </div>
+                            ${upgrade.needed ? `
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">Hybrid_Inverter_Upgrade</span>
+                                <span class="text-sm font-bold">${upgrade.priced ? `RM ${formatCurrency(upgrade.price)}` : 'Price to be confirmed'}</span>
+                            </div>` : ''}` : ''}
                             <div class="flex justify-between items-baseline pt-2">
                                 <span class="text-xs uppercase font-bold text-emerald-400">ESTIMATED_SYSTEM_COST</span>
                                 <span class="text-xl font-bold text-emerald-400">RM ${formatCurrency(data.systemCost)}</span>
