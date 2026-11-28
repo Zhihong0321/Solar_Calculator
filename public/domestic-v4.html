@@ -972,16 +972,21 @@
                             <div>
                                 <FieldLabel>Inverter Type</FieldLabel>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <SegmentedButton active={inputs.inverterType === 'string'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'string' }))}>
+                                    <SegmentedButton active={inputs.inverterType === 'string'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'string', batterySize: 0 }))}>
                                         String
                                     </SegmentedButton>
                                     <SegmentedButton active={inputs.inverterType === 'hybrid'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'hybrid' }))}>
                                         Hybrid
                                     </SegmentedButton>
-                                    <SegmentedButton active={inputs.inverterType === 'micro'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'micro' }))}>
+                                    <SegmentedButton active={inputs.inverterType === 'micro'} onClick={() => setInputs((prev) => ({ ...prev, inverterType: 'micro', batterySize: 0 }))}>
                                         Micro
                                     </SegmentedButton>
                                 </div>
+                                {Number(inputs.batterySize) > 0 && (
+                                    <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
+                                        Battery needs a Hybrid inverter. Choosing String or Micro removes the battery.
+                                    </div>
+                                )}
                             </div>
 
                             {errorMessage && (
@@ -1313,8 +1318,13 @@
                                         <div style={{ color: ACCENT.light, fontWeight: 700, fontSize: 10, marginBottom: 1 }}>推荐配套</div>
                                         {selectedPackage.packageName}
                                     </div>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>
+                                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', textAlign: 'right' }}>
                                         RM {fmt(result?.finalSystemCost || selectedPackage.price)}
+                                        {toNumber(result?.batteryCost?.total) > 0 && (
+                                            <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af' }}>
+                                                incl. {fmt(result.batteryCost.sizeKwh, 0)} kWh battery RM {fmt(result.batteryCost.total)}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -3322,14 +3332,16 @@
 
             async function handleBatterySelect(size) {
                 const nextSize = Number(size);
-                const nextInputs = { ...inputs, batterySize: nextSize };
+                // A battery needs a hybrid inverter, so picking one switches the package to hybrid.
+                const nextInverterType = nextSize > 0 ? 'hybrid' : inputs.inverterType;
+                const nextInputs = { ...inputs, batterySize: nextSize, inverterType: nextInverterType };
                 setInputs(nextInputs);
 
                 if (!solarResult) {
                     return;
                 }
 
-                await runSolarPlan({ batterySize: nextSize }, 'battery');
+                await runSolarPlan({ batterySize: nextSize, inverterType: nextInverterType }, 'battery');
             }
 
             async function handleBatteryLossChange(value) {

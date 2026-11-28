@@ -21,6 +21,18 @@ let savingsPieChart = null;
 const COMMERCIAL_PACKAGE_TYPE = 'Tariff B&D Low Voltage';
 const DEFAULT_COMMERCIAL_PANEL_RATING = 650;
 
+// Battery: same line the quotation adds (create_invoice.js): B3-16.0-LV, RM8,000 per 16 kWh module.
+const COMMERCIAL_BATTERY_SIZES = [0, 16, 32, 48];
+const BATTERY_MODULE_SIZE_KWH = 16;
+const BATTERY_UNIT_PRICE = 8000;
+const BATTERY_DOD_PERCENT = 5; // same default as the residential calculator
+let currentBatterySize = 0;
+
+function normalizeCommercialBatterySize(value) {
+    const numeric = parseInt(value, 10) || 0;
+    return COMMERCIAL_BATTERY_SIZES.includes(numeric) ? numeric : 0;
+}
+
 // Hourly Solar Generation Map (Percentage of daily yield)
 const HOURLY_SOLAR_MAP = {
     7: 0.02, 8: 0.05, 9: 0.09, 10: 0.12, 11: 0.15, 12: 0.16,
@@ -223,6 +235,7 @@ async function runCommercialRoiAnalysis(options = {}) {
         throw new Error('Commercial simulation parameters are not ready.');
     }
 
+    params.batterySize = currentBatterySize;
     currentSimulationParams = params;
     const recommendedPanels = calculateRecommendedPanelQuantity(params.panelRating, params.totalMonthlyKwh);
     const initialPackage = findClosestCommercialPackage(recommendedPanels, params.panelRating);
@@ -391,8 +404,14 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
     const systemSizeKwp = (finalPanels * panelRating) / 1000;
     const dailyGenKwh = systemSizeKwp * sunPeak;
 
+    const batterySize = normalizeCommercialBatterySize(params.batterySize);
+    const batteryQty = batterySize > 0 ? Math.floor(batterySize / BATTERY_MODULE_SIZE_KWH) : 0;
+    const batteryCost = batteryQty * BATTERY_UNIT_PRICE;
+    const usableBatteryKwh = batterySize * (1 - BATTERY_DOD_PERCENT / 100);
+
     let weeklyOffsetKwh = 0;
     let weeklyExportKwh = 0;
+    let weeklyBatteryKwh = 0;
     let dailyData = [];
 
     for (let d = 0; d < 7; d++) {
@@ -401,6 +420,7 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
         const hours = workingHours[dayKey];
         let dayOffset = 0;
         let dayExport = 0;
+        let dayUnmetLoad = 0;
 
         for (let h = 0; h < 24; h++) {
             const isWorking = h >= hours.start && h < hours.end;
@@ -415,15 +435,23 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
 
             dayOffset += offset;
             dayExport += exportAmt;
+            dayUnmetLoad += Math.max(0, currentLoad - offset);
         }
+        // Battery: charged from the day's excess solar, discharged into the day's load that solar did not cover.
+        const dayBattery = Math.max(0, Math.min(dayExport, usableBatteryKwh, dayUnmetLoad));
         weeklyOffsetKwh += dayOffset;
         weeklyExportKwh += dayExport;
-        dailyData.push({ day: dayName, offset: dayOffset, export: dayExport });
+        weeklyBatteryKwh += dayBattery;
+        dailyData.push({ day: dayName, offset: dayOffset, export: dayExport - dayBattery, battery: dayBattery });
     }
 
-    const monthlyOffsetKwh = weeklyOffsetKwh * 4.33;
-    const monthlyExportKwh = weeklyExportKwh * 4.33;
+    const monthlySolarOffsetKwh = weeklyOffsetKwh * 4.33;
+    const monthlySolarExportKwh = weeklyExportKwh * 4.33;
+    const monthlyBatteryKwh = weeklyBatteryKwh * 4.33;
+    const monthlyOffsetKwh = monthlySolarOffsetKwh + monthlyBatteryKwh;
+    const monthlyExportKwh = Math.max(0, monthlySolarExportKwh - monthlyBatteryKwh);
     const newTotalUsageKwh = Math.max(0, totalMonthlyKwh - monthlyOffsetKwh);
+    const solarOnlyUsageKwh = Math.max(0, totalMonthlyKwh - monthlySolarOffsetKwh);
 
     // Validate matchedBillData before proceeding
     if (!matchedBillData) {
@@ -482,6 +510,27 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
     const exportEarnings = monthlyExportKwh * smpPrice;
     const totalMonthlySavings = billSaving + exportEarnings;
 
+    // Battery value add = savings with battery minus savings with solar only.
+    // If the solar-only lookup fails, the value add is labelled unconfirmed; the main result is still produced.
+    let batteryValueAddMonthly = 0;
+    let batteryValueAddKnown = true;
+    if (batterySize > 0) {
+        try {
+            const solarOnlyRes = await fetch(`/api/commercial/lookup-by-usage?usage=${solarOnlyUsageKwh}&logActivity=0`);
+            const solarOnlyData = solarOnlyRes.ok ? await solarOnlyRes.json() : null;
+            const solarOnlyBill = parseFloat(solarOnlyData?.tariff?.total_bill);
+            if (Number.isFinite(solarOnlyBill)) {
+                const solarOnlySavings = (parseFloat(matchedBillData.total_bill) - solarOnlyBill) + (monthlySolarExportKwh * smpPrice);
+                batteryValueAddMonthly = totalMonthlySavings - solarOnlySavings;
+            } else {
+                batteryValueAddKnown = false;
+            }
+        } catch (err) {
+            console.warn('[Commercial battery] solar-only lookup failed:', err);
+            batteryValueAddKnown = false;
+        }
+    }
+
     // Match commercial packages by both panel quantity and selected panel rating.
     let pkg = findClosestCommercialPackage(panelQty, panelRating);
     currentPackageData = pkg;
@@ -498,6 +547,9 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
         systemCost = systemSizeKwp * 3500;
     }
 
+    const solarSystemCost = systemCost;
+    systemCost = solarSystemCost + batteryCost;
+
     const payback = totalMonthlySavings > 0 ? systemCost / (totalMonthlySavings * 12) : 0;
 
     return {
@@ -513,9 +565,21 @@ async function calculateSolarSavings(panelQty, params, options = {}) {
         exportEarnings,
         totalMonthlySavings,
         systemCost,
+        solarSystemCost,
         payback,
         pkg,
-        dailyData
+        dailyData,
+        battery: {
+            sizeKwh: batterySize,
+            qty: batteryQty,
+            unitPrice: BATTERY_UNIT_PRICE,
+            cost: batteryCost,
+            usableKwh: usableBatteryKwh,
+            dodPercent: BATTERY_DOD_PERCENT,
+            monthlyDischargeKwh: monthlyBatteryKwh,
+            valueAddMonthly: batteryValueAddMonthly,
+            valueAddKnown: batteryValueAddKnown
+        }
     };
 }
 
@@ -542,6 +606,19 @@ async function updatePanelQuantity(change) {
         alert('Recalculation failed. Check console for details.');
     }
 }
+
+window.setCommercialBatterySize = async function (size) {
+    const nextSize = normalizeCommercialBatterySize(size);
+    if (nextSize === currentBatterySize) return;
+    currentBatterySize = nextSize;
+    if (!hasCommercialReport()) return;
+    try {
+        await runCommercialRoiAnalysis({ preserveCurrentPanelQty: true, isRecalculation: true });
+    } catch (err) {
+        console.error('Failed to recalculate with battery:', err);
+        alert('Recalculation failed. Check console for details.');
+    }
+};
 
 // Set specific panel quantity from input
 async function setPanelQuantity(qty) {
@@ -578,6 +655,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
     const pricePerPanel = data.pkg ? data.pkg.price / data.pkg.panel_qty : 3500 * (data.panelRating / 1000);
     const estimatedCost = isCustomQty ? pricePerPanel * data.finalPanels : data.systemCost;
     const canCreateQuotation = Boolean(data.pkg && data.pkg.bubble_id);
+    const battery = data.battery || { sizeKwh: 0, cost: 0, usableKwh: 0, dodPercent: BATTERY_DOD_PERCENT, monthlyDischargeKwh: 0, valueAddMonthly: 0, valueAddKnown: true };
 
     roiContainer.innerHTML = `
         <div class="space-y-12 ${isRecalculation ? '' : 'animate-in fade-in slide-in-from-bottom-4 duration-700'}">
@@ -623,6 +701,31 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                     ${isCustomQty ? `<p class="text-[10px] text-amber-400 mt-3 font-semibold">* Estimated cost based on ${data.pkg.package_name} pricing</p>` : ''}
                 </div>
 
+                <!-- Battery Storage -->
+                <div class="bg-white/5 border border-white/10 p-4 md:p-6 mb-6">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <div class="flex-1">
+                            <label class="text-[10px] uppercase tracking-widest text-emerald-400 font-bold block mb-2">Battery Storage (Optional)</label>
+                            <p class="text-[10px] opacity-60">B3-16.0-LV · RM ${formatCurrency(BATTERY_UNIT_PRICE)} per 16 kWh · stores excess solar for load solar did not cover</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            ${COMMERCIAL_BATTERY_SIZES.map(size => `
+                            <button onclick="setCommercialBatterySize(${size})" class="min-w-[64px] h-10 px-3 border text-xs font-bold transition-colors ${battery.sizeKwh === size ? 'bg-emerald-500 border-emerald-400 text-black' : 'bg-white/10 border-white/20 hover:bg-white/20'}">
+                                ${size === 0 ? 'None' : `${size} kWh`}
+                            </button>`).join('')}
+                        </div>
+                    </div>
+                    ${battery.sizeKwh > 0 ? `
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 text-[10px] uppercase">
+                        <div><div class="opacity-50">Usable (DoD ${battery.dodPercent}%)</div><div class="text-sm font-bold">${battery.usableKwh.toFixed(1)} kWh</div></div>
+                        <div><div class="opacity-50">Battery_Discharge</div><div class="text-sm font-bold">${Math.round(battery.monthlyDischargeKwh).toLocaleString()} kWh/mo</div></div>
+                        <div><div class="opacity-50">Battery_Value_Add</div><div class="text-sm font-bold text-emerald-400">${battery.valueAddKnown ? `+RM ${formatCurrency(battery.valueAddMonthly)}/mo` : 'Unconfirmed'}</div></div>
+                        <div><div class="opacity-50">Battery_Cost</div><div class="text-sm font-bold">RM ${formatCurrency(battery.cost)}</div></div>
+                    </div>
+                    <p class="text-[10px] text-amber-400 mt-3 font-semibold">* A battery needs a hybrid inverter. The current commercial packages use a string inverter, so confirm the inverter on the quotation.</p>
+                    ` : ''}
+                </div>
+
                 <div class="grid grid-cols-1 gap-8">
                     <p class="text-[10px] text-white/50 uppercase leading-relaxed">
                         Precision simulation based on 24/7 building load modeling and hourly solar yield projection. 
@@ -652,6 +755,7 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                             </div>
                             <div class="flex justify-between mt-1 text-[8px] font-bold uppercase">
                                 <span class="text-emerald-600">Offset: ${d.offset.toFixed(1)} kWh (${offsetPct.toFixed(0)}%)</span>
+                                ${d.battery > 0 ? `<span class="text-sky-600">Battery: ${d.battery.toFixed(1)} kWh</span>` : ''}
                                 <span class="text-orange-600">Export: ${d.export.toFixed(1)} kWh (${exportPct.toFixed(0)}%)</span>
                             </div>
                         </div>
@@ -764,6 +868,15 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                                 <span class="text-xs uppercase opacity-60">Panel_Rating</span>
                                 <span class="text-sm font-bold">${data.panelRating}W</span>
                             </div>
+                            ${battery.sizeKwh > 0 ? `
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">Solar_Package_Cost</span>
+                                <span class="text-sm font-bold">RM ${formatCurrency(data.solarSystemCost)}</span>
+                            </div>
+                            <div class="flex justify-between items-baseline border-b border-white/10 pb-2">
+                                <span class="text-xs uppercase opacity-60">Battery (${battery.sizeKwh} kWh)</span>
+                                <span class="text-sm font-bold">RM ${formatCurrency(battery.cost)}</span>
+                            </div>` : ''}
                             <div class="flex justify-between items-baseline pt-2">
                                 <span class="text-xs uppercase font-bold text-emerald-400">ESTIMATED_SYSTEM_COST</span>
                                 <span class="text-xl font-bold text-emerald-400">RM ${formatCurrency(data.systemCost)}</span>
@@ -897,6 +1010,8 @@ window.generateCommercialQuotation = function () {
     if (Number.isFinite(quoteData?.totalMonthlySavings)) params.set('estimated_saving', String(quoteData.totalMonthlySavings));
     if (payableAfterSolar !== null) params.set('estimated_new_bill_amount', String(payableAfterSolar));
     if (Number.isFinite(currentSimulationParams?.sunPeak)) params.set('solar_sun_peak_hour', String(currentSimulationParams.sunPeak));
+    const quoteBatterySize = normalizeCommercialBatterySize(quoteData?.battery?.sizeKwh);
+    if (quoteBatterySize > 0) params.set('battery_size', String(quoteBatterySize));
 
     window.location.href = `${invoiceBaseUrl}?${params.toString()}`;
 };

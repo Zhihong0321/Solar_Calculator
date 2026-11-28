@@ -9,6 +9,9 @@ const { lookupBestPackage, normalizeResidentialInverterType } = require('./packa
 const ALLOWED_BATTERY_SIZES = new Set([0, 16, 32, 48]);
 const DEFAULT_BATTERY_LOSS_PERCENT = 0;
 const DEFAULT_BATTERY_DOD_PERCENT = 5;
+// Same battery line the quotation adds (public/js/pages/create_invoice.js): B3-16.0-LV, RM8,000 per 16 kWh module.
+const BATTERY_MODULE_SIZE_KWH = 16;
+const BATTERY_UNIT_PRICE = 8000;
 
 const clampPercent = (value, min, max, fallback) => {
   const numeric = Number(value);
@@ -365,7 +368,7 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   const batteryLossPercentVal = clampPercent(batteryLossPercent, 0, 20, DEFAULT_BATTERY_LOSS_PERCENT);
   const batteryDodPercentVal = clampPercent(batteryDodPercent, 0, 10, DEFAULT_BATTERY_DOD_PERCENT);
   const systemPhaseVal = parseInt(systemPhase) || 3;
-  const inverterTypeVal = normalizeResidentialInverterType(inverterType);
+  const requestedInverterType = normalizeResidentialInverterType(inverterType);
   const futureUsageKwhRaw = futureUsageKwh ?? usageKwhOverride;
   const futureUsageKwhVal = parseFloat(futureUsageKwhRaw);
   const hasFutureUsageOverride = Number.isFinite(futureUsageKwhVal) && futureUsageKwhVal > 0;
@@ -384,6 +387,12 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
   if (!morningPercent || morningPercent < 1 || morningPercent > 100) throw new Error('Morning Usage must be between 1% and 100%');
   if (!smp || smp < 0.19 || smp > 0.2703) throw new Error('SMP price must be between RM 0.19 and RM 0.2703');
   if (!ALLOWED_BATTERY_SIZES.has(batterySizeVal)) throw new Error('Battery size must be 0, 16, 32, or 48 kWh');
+
+  // A battery needs a hybrid inverter, so a battery plan always uses a hybrid package.
+  const inverterTypeVal = batterySizeVal > 0 ? 'hybrid' : requestedInverterType;
+  const inverterForcedByBattery = batterySizeVal > 0 && requestedInverterType !== 'hybrid';
+  const batteryQty = batterySizeVal > 0 ? Math.floor(batterySizeVal / BATTERY_MODULE_SIZE_KWH) : 0;
+  const batteryCost = batteryQty * BATTERY_UNIT_PRICE;
 
   const tariffClient = await tariffPool.connect();
   const mainClient = await mainPool.connect();
@@ -660,8 +669,10 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
     let paybackPeriod = null;
 
     if (selectedPackage && selectedPackage.price) {
-      systemCostBeforeDiscount = parseFloat(selectedPackage.price);
-      percentDiscountAmount = (systemCostBeforeDiscount * discountPercent) / 100;
+      const packagePrice = parseFloat(selectedPackage.price) || 0;
+      // Battery is added at full price; % discount applies to the package only, as on the quotation.
+      systemCostBeforeDiscount = packagePrice + batteryCost;
+      percentDiscountAmount = (packagePrice * discountPercent) / 100;
       const priceAfterPercent = systemCostBeforeDiscount - percentDiscountAmount;
       fixedDiscountAmount = discountFixed;
       finalSystemCost = Math.max(0, priceAfterPercent - fixedDiscountAmount);
@@ -715,7 +726,15 @@ async function calculateSolarSavings(mainPool, tariffPool, params) {
         batteryLossPercent: batteryLossPercentVal,
         batteryDodPercent: batteryDodPercentVal,
         systemPhase: systemPhaseVal,
-        inverterType: inverterTypeVal
+        inverterType: inverterTypeVal,
+        requestedInverterType,
+        inverterForcedByBattery
+      },
+      batteryCost: {
+        sizeKwh: batterySizeVal,
+        qty: batteryQty,
+        unitPrice: BATTERY_UNIT_PRICE,
+        total: Number(batteryCost.toFixed(2))
       },
       confidenceLevel: confidenceLevel.toFixed(1),
       recommendedPanels: recommendedPanels,
