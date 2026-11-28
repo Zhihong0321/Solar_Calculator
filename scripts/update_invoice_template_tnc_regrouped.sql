@@ -4,7 +4,7 @@
 --   "Our Payment Terms:" -> section heading "PAYMENT TERMS", and "Our Refund Policy:" -> "Refund Rules:".
 -- The new text also already contains the latest wording, so this ONE script replaces the earlier two:
 --   * refund after SEDA approval = amount paid minus RM1500
---   * Roof Leaking Warranty = 6 months
+--   * Roof Leaking Warranty = 1 year
 --   * Overdue Payment = 2%/month interest
 --   * the Warranty Repairs and Unauthorised Works clause (stored instead of added at render time)
 -- (scripts/update_invoice_template_refund_after_seda.sql and update_invoice_template_roof_leak_and_overdue.sql
@@ -79,7 +79,7 @@ Workmanship Warranty
 During the period of the warranty where Eternalgy Sdn Bhd’s workmanship has resulted in a defective installation then Eternalgy Sdn Bhd will, at its absolute discretion, either carry out any repairs or replacements necessary to allow proper functioning of the Solar PV system.
 
 Roof Leaking Warranty
-During the 6-month warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage then Eternalgy Sdn Bhd will, at its absolute discretion, either carry out any repairs to fix the roof condition. The covered cost of Roof Repair shall not exceed 20% of the project final price.
+During the 1-year warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage then Eternalgy Sdn Bhd will, at its absolute discretion, either carry out any repairs to fix the roof condition. The covered cost of Roof Repair shall not exceed 20% of the project final price.
 
 Backup Power During Power Outage
 The Solar PV system does not act as a backup electricity source during a power outage (blackout). Backup power requires an additional ATS (Automatic Transfer Switch), which is not included in this package.

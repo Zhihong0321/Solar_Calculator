@@ -20,6 +20,13 @@
   paragraph). `scripts/test_invoice_tnc_regrouped_structure.js` checks both layouts against the production text
   fixture, so deploy and SQL can happen in either order.
 
+## 2026-11-28 — Roof leak warranty changed from 6 months to 1 year (TNC, render time, all documents)
+
+- made by: Claude Opus 5.5, at user direction
+- shape: `invoiceRoofLeakWarrantyTermsPolicy.js` label is now "1-year"; its pattern also rewrites an already
+  stated period ("6-month warranty period") so old SQL output still shows 1 year. SQL scripts, draft text and
+  tests updated to "1-year". Now matches the product Warranty box ("1 Year Roof Leaking Warranty").
+
 ## 2026-11-24 — Roof leak warranty = 6 months, overdue payment = 2%/month interest (TNC, render time, all documents)
 
 - made by: Claude Sonnet 5.5, at user direction

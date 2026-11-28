@@ -20,7 +20,7 @@ Applied in this order by `applyInvoiceTermsPolicies` in
 | 1 | Payment terms: 5% / 60% / 35% before 1 Jul 2026, 5% / 75% / 20% from 1 Jul 2026 (by invoice date) | `services/invoicePaymentTermsPolicy.js` | by invoice date |
 | 2 | "Warranty Repairs and Unauthorised Works" clause, inserted before the REFUND POLICY heading | `services/invoiceWarrantyTermsPolicy.js` | all unsigned quotations; signed ones only if dated 1 Aug 2026 or later |
 | 3 | Refund after SEDA approval = **amount paid minus RM1500** (rewrites the "5% + N% Refund (After SEDA Application)" paragraph, keeps its own percentage) | `services/invoiceRefundTermsPolicy.js` | every document, signed or not, any date |
-| 4 | Roof Leaking Warranty = **6 months** ("During the period of the warranty where…" becomes "During the 6-month warranty period where…", only under the "Roof Leaking Warranty" heading) | `services/invoiceRoofLeakWarrantyTermsPolicy.js` | every document |
+| 4 | Roof Leaking Warranty = **1 year** (changed from 6 months on 2026-11-28) ("During the period of the warranty where…" becomes "During the 1-year warranty period where…", only under the "Roof Leaking Warranty" heading) | `services/invoiceRoofLeakWarrantyTermsPolicy.js` | every document |
 | 5 | Overdue payment = **2%/month interest**: line "Overdue Payment: For overdue payment there will be a 2%/month interest." added at the end of "Our Payment Terms", before "Our Refund Policy:" | `services/invoiceOverduePaymentTermsPolicy.js` | every document |
 
 Every rule is idempotent (text that already has the change is left alone), and returns the text
@@ -56,7 +56,7 @@ To update the stored copy too (so any other system reading the same row shows th
 
 ## Roof leak warranty and overdue interest (changed 2026-11-24)
 
-- Roof Leaking Warranty is 6 months. The "Workmanship Warranty" paragraph has similar words and is not touched.
+- Roof Leaking Warranty is 1 year (was 6 months until 2026-11-28; old "6-month" text is also rewritten to "1-year" at render time). The "Workmanship Warranty" paragraph has similar words and is not touched.
 - Overdue payment carries 2%/month interest. The TNC does not define a payment due date or a number of days
   (the final payment is "due upon the completion of the installation"), so "overdue" has no fixed start yet.
 - **The "Warranty" box on the document is separate.** It comes from `product.product_warranty_desc` (products
@@ -75,7 +75,7 @@ two changed lines are "Our Payment Terms:" (now the section heading "PAYMENT TER
 
 - One script does it all: `scripts/update_invoice_template_tnc_regrouped.sql` (backs the old text up into
   `invoice_template_terms_backup`, updates row 1, before/after checks, end with `COMMIT;` or `ROLLBACK;`). Its text
-  already contains the refund, 6-month and overdue wording and the warranty clause, so the two earlier SQL scripts
+  already contains the refund, 1-year roof leak and overdue wording and the warranty clause, so the two earlier SQL scripts
   are no longer needed.
 - The rules work on both layouts, so deploy and SQL can happen in either order: the payment rule recognises the
   "PAYMENT TERMS" heading (no duplicate block), the warranty clause goes at the end of the warranty section, and the

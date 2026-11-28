@@ -19,7 +19,7 @@ const SQL_TEXT = fs.readFileSync(path.join(__dirname, 'update_invoice_template_t
 
 const REFUND_NEW = 'The refund amount will be the amount paid minus RM1500.';
 const OVERDUE = 'Overdue Payment: For overdue payment there will be a 2%/month interest.';
-const ROOF_6M = 'During the 6-month warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage';
+const ROOF_1Y = 'During the 1-year warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage';
 
 function render(text, invoice = {}) {
   const out = applyInvoiceTnc({
@@ -78,7 +78,7 @@ function testEachLatestTermAppearsOnceEverywhere() {
   for (const [label, text] of [['stored text', render(OLD_TEXT)], ['regrouped text', render(NEW_TEXT)]]) {
     assert.equal(countOf(text, REFUND_NEW), 1, `${label}: refund wording`);
     assert.equal(countOf(text, OVERDUE), 1, `${label}: overdue line`);
-    assert.equal(countOf(text, ROOF_6M), 1, `${label}: roof leak 6 months`);
+    assert.equal(countOf(text, ROOF_1Y), 1, `${label}: roof leak 1 year`);
     assert.equal(countOf(text, 'Warranty Repairs and Unauthorised Works\nAll defects'), 1, `${label}: warranty repairs clause`);
     assert.equal(countOf(text, 'PAYMENT TERMS\n') + countOf(text, 'Our Payment Terms:'), 1, `${label}: one payment terms block`);
     assert.doesNotMatch(text, /subject to deductions/, `${label}: old refund deductions gone`);

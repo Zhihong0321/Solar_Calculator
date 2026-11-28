@@ -22,8 +22,15 @@ const TERMS = [
 
 function testRoofLeakPeriodAdded() {
   const out = applyRoofLeakWarrantyToText(TERMS);
-  assert.match(out, /Roof Leaking Warranty\nDuring the 6-month warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage/);
+  assert.match(out, /Roof Leaking Warranty\nDuring the 1-year warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage/);
   assert.match(out, /shall not exceed 20% of the project final price\./);
+}
+
+function testOldSixMonthWordingBecomesOneYear() {
+  const old = TERMS.replace('During the period of the warranty where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage', 'During the 6-month warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage');
+  const out = applyRoofLeakWarrantyToText(old);
+  assert.match(out, /Roof Leaking Warranty\nDuring the 1-year warranty period where/);
+  assert.ok(!out.includes('6-month'));
 }
 
 function testWorkmanshipParagraphUntouched() {
@@ -38,7 +45,7 @@ function testIdempotent() {
 
 function testWindowsLineEndings() {
   const out = applyRoofLeakWarrantyToText(TERMS.replace(/\n/g, '\r\n'));
-  assert.match(out, /During the 6-month warranty period where/);
+  assert.match(out, /During the 1-year warranty period where/);
 }
 
 function testMissingParagraphLeavesTextAndStillWorks() {
@@ -54,7 +61,7 @@ function testAppliesToUnsignedAndSignedDocuments() {
     { invoice_date: '2026-11-24', signature_date: '2026-11-24' }
   ]) {
     const out = applyRoofLeakWarrantyPolicy(invoice, { terms_and_conditions: TERMS });
-    assert.match(out.terms_and_conditions, /6-month warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage/);
+    assert.match(out.terms_and_conditions, /1-year warranty period where Eternalgy Sdn Bhd’s workmanship has resulted in a Roof Leakage/);
   }
 }
 
@@ -64,6 +71,7 @@ function testNoTemplateDoesNotCrash() {
 }
 
 testRoofLeakPeriodAdded();
+testOldSixMonthWordingBecomesOneYear();
 testWorkmanshipParagraphUntouched();
 testIdempotent();
 testWindowsLineEndings();
