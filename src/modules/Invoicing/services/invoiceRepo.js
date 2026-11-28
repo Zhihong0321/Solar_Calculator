@@ -167,6 +167,7 @@ async function _takeNextInvoiceCounterValue(client) {
  * @private
  */
 async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
+  const warrantyPlaceholders = [];
   try {
     const productIds = [];
 
@@ -182,10 +183,13 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
       if (pkgRes.rows.length > 0) {
         const pkg = pkgRes.rows[0];
         if (pkg.panel) productIds.push(pkg.panel);
-        if (pkg.inverter_1) productIds.push(pkg.inverter_1);
-        if (pkg.inverter_2) productIds.push(pkg.inverter_2);
-        if (pkg.inverter_3) productIds.push(pkg.inverter_3);
-        if (pkg.inverter_4) productIds.push(pkg.inverter_4);
+        const packageInverterIds = [pkg.inverter_1, pkg.inverter_2, pkg.inverter_3, pkg.inverter_4].filter(Boolean);
+        const batterySwap = await _resolveBatteryHybridWarrantySwap(client, packageInverterIds, invoiceItems);
+        packageInverterIds
+          .filter((id) => !batterySwap.dropInverterIds.has(String(id)))
+          .forEach((id) => productIds.push(id));
+        batterySwap.addProductIds.forEach((id) => productIds.push(id));
+        if (batterySwap.placeholder) warrantyPlaceholders.push(batterySwap.placeholder);
 
         const linkedItems = pkg.linked_package_item;
         if (Array.isArray(linkedItems) && linkedItems.length > 0) {
@@ -208,25 +212,83 @@ async function _fetchWarrantyInfo(client, packageId, invoiceItems = []) {
       });
     }
 
-    if (productIds.length === 0) return [];
+    if (productIds.length === 0) return warrantyPlaceholders;
 
-    const uniqueIds = [...new Set(productIds)];
+    const uniqueIds = [...new Set(productIds.map(String))];
     const productsRes = await client.query(
-      `SELECT name, product_warranty_desc, warranty_name 
-       FROM product 
+      `SELECT name, product_warranty_desc, warranty_name
+       FROM product
        WHERE (bubble_id = ANY($1::text[]) OR id::text = ANY($1::text[]))
        AND (product_warranty_desc IS NOT NULL OR warranty_name IS NOT NULL)`,
       [uniqueIds]
     );
 
-    return productsRes.rows.map(p => ({
-      name: p.name,
-      terms: p.product_warranty_desc || p.warranty_name || 'Standard Warranty'
-    }));
+    const seenNames = new Set();
+    const warranties = productsRes.rows
+      .filter((p) => {
+        const key = String(p.name || '').trim().toLowerCase();
+        if (seenNames.has(key)) return false;
+        seenNames.add(key);
+        return true;
+      })
+      .map(p => ({
+        name: p.name,
+        terms: p.product_warranty_desc || p.warranty_name || 'Standard Warranty'
+      }));
+    return warranties.concat(warrantyPlaceholders);
 
   } catch (err) {
     console.error('Error fetching warranty info:', err);
-    return [];
+    return warrantyPlaceholders;
+  }
+}
+
+// Battery quotations: when the saved package line was switched to a hybrid inverter
+// (buildPackageItemDescription) but the package record still points at a string
+// inverter, show the hybrid inverter's warranty instead of the string one.
+// Older quotations whose package text still names the string inverter are left as they are.
+async function _resolveBatteryHybridWarrantySwap(client, packageInverterIds, invoiceItems) {
+  const none = { dropInverterIds: new Set(), addProductIds: [], placeholder: null };
+  try {
+    const items = Array.isArray(invoiceItems) ? invoiceItems : [];
+    if (!hasBatteryExtraItem(items) || packageInverterIds.length === 0) return none;
+
+    const packageItem = items.find((item) => item && (item.is_a_package || item.isPackage));
+    const hybridLine = String(packageItem?.description || '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => /inverter/i.test(line) && /hybrid|hybird/i.test(line));
+    if (!hybridLine) return none;
+    const hybridName = hybridLine.replace(/^\d+\s*X\s+/i, '').trim();
+
+    const invRes = await client.query(
+      `SELECT bubble_id, id::text AS id, name FROM product
+       WHERE bubble_id = ANY($1::text[]) OR id::text = ANY($1::text[])`,
+      [packageInverterIds.map(String)]
+    );
+    const stringIds = new Set();
+    invRes.rows.forEach((row) => {
+      if (inferInverterKind(row.name) === 'string') {
+        if (row.bubble_id) stringIds.add(String(row.bubble_id));
+        if (row.id) stringIds.add(String(row.id));
+      }
+    });
+    if (stringIds.size === 0) return none;
+
+    const hybridRes = await client.query(
+      `SELECT COALESCE(bubble_id, id::text) AS product_id FROM product
+       WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+      [hybridName]
+    );
+    const hybridProductId = hybridRes.rows[0]?.product_id || null;
+    return {
+      dropInverterIds: stringIds,
+      addProductIds: hybridProductId ? [hybridProductId] : [],
+      placeholder: hybridProductId ? null : { name: hybridName, terms: 'Warranty to be confirmed' }
+    };
+  } catch (err) {
+    console.warn('[Battery] Hybrid warranty swap skipped:', err.message);
+    return none;
   }
 }
 
