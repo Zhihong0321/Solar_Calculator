@@ -363,6 +363,76 @@ function syncBatteryItemFromSelection(batterySizeKwh) {
 
     renderManualItems();
     updateInvoicePreview();
+
+    syncBatteryHybridUpgradeItem(batteryQty);
+}
+
+// A battery needs a hybrid inverter. When the package has a string inverter, add an
+// upgrade line priced from hybrid_inverter_upgrade_rule; when no price exists, add an
+// RM0 line labelled "price to be confirmed" so the quotation never shows a battery
+// on a string inverter without saying so.
+const BATTERY_HYBRID_UPGRADE_ITEM_ID = 'item_battery_hybrid_upgrade';
+let batteryHybridUpgradeRequestSeq = 0;
+
+async function syncBatteryHybridUpgradeItem(batteryQty) {
+    const requestSeq = ++batteryHybridUpgradeRequestSeq;
+    manualItems = manualItems.filter(item => item.id !== BATTERY_HYBRID_UPGRADE_ITEM_ID);
+    if (!(batteryQty > 0)) {
+        renderManualItems();
+        updateInvoicePreview();
+        return;
+    }
+
+    const packageId = document.getElementById('packageIdHidden')?.value || '';
+    const packageName = String(document.getElementById('packageName')?.value || '');
+
+    let upgradeData = null;
+    if (packageId) {
+        try {
+            const res = await fetch(`/api/package/${encodeURIComponent(packageId)}/hybrid-upgrades`);
+            const json = res.ok ? await res.json() : null;
+            upgradeData = json?.data || null;
+        } catch (err) {
+            console.warn('[Battery] Could not load hybrid upgrade options:', err);
+        }
+    }
+    if (requestSeq !== batteryHybridUpgradeRequestSeq) return;
+
+    const alreadyHybrid = upgradeData
+        ? Boolean(upgradeData.packageAlreadyHybrid)
+        : /hybrid|hybird/i.test(packageName);
+    if (alreadyHybrid) {
+        renderManualItems();
+        updateInvoicePreview();
+        return;
+    }
+
+    const currentInverterName = upgradeData?.currentInverter?.name || 'the string inverter';
+    const rules = Array.isArray(upgradeData?.rules) ? upgradeData.rules : [];
+    const rule = rules.find(r => (parseFloat(r?.price_amount) || 0) > 0) || null;
+
+    if (rule) {
+        const targetName = rule.to_product_name_snapshot
+            || (rule.to_model_code ? `SAJ ${rule.to_model_code} Hybrid Inverter` : 'Hybrid Inverter');
+        manualItems.push({
+            id: BATTERY_HYBRID_UPGRADE_ITEM_ID,
+            description: `Hybrid Inverter Upgrade for Battery: ${targetName} (replaces ${currentInverterName})`,
+            qty: 1,
+            unit_price: parseFloat(rule.price_amount) || 0,
+            linked_product: rule.to_product_bubble_id || null
+        });
+    } else {
+        manualItems.push({
+            id: BATTERY_HYBRID_UPGRADE_ITEM_ID,
+            description: `Hybrid inverter required for battery (replaces ${currentInverterName}) - price to be confirmed`,
+            qty: 1,
+            unit_price: 0,
+            linked_product: null
+        });
+    }
+
+    renderManualItems();
+    updateInvoicePreview();
 }
 
 function hideRetiredHybridUpgradeControls() {
