@@ -377,6 +377,7 @@ let batteryHybridUpgradeRequestSeq = 0;
 async function syncBatteryHybridUpgradeItem(batteryQty) {
     const requestSeq = ++batteryHybridUpgradeRequestSeq;
     manualItems = manualItems.filter(item => item.id !== BATTERY_HYBRID_UPGRADE_ITEM_ID);
+    showPackageDescriptionWithInverter(null);
     if (!(batteryQty > 0)) {
         renderManualItems();
         updateInvoicePreview();
@@ -407,32 +408,51 @@ async function syncBatteryHybridUpgradeItem(batteryQty) {
         return;
     }
 
-    const currentInverterName = upgradeData?.currentInverter?.name || 'the string inverter';
+    const currentInverterName = String(upgradeData?.currentInverter?.name || '');
+    const phaseTag = /\[1P\]/i.test(currentInverterName) ? '[1P] ' : (/\[3P\]/i.test(currentInverterName) ? '[3P] ' : '');
     const rules = Array.isArray(upgradeData?.rules) ? upgradeData.rules : [];
     const rule = rules.find(r => (parseFloat(r?.price_amount) || 0) > 0) || null;
+    // Same naming as the server (invoiceRepo hybridInverterNameForBattery).
+    const hybridName = rule?.to_product_name_snapshot
+        || (rule?.to_model_code ? `${phaseTag}SAJ ${rule.to_model_code} Hybrid Inverter` : `${phaseTag}Hybrid Inverter (model to be confirmed)`);
 
-    if (rule) {
-        const targetName = rule.to_product_name_snapshot
-            || (rule.to_model_code ? `SAJ ${rule.to_model_code} Hybrid Inverter` : 'Hybrid Inverter');
-        manualItems.push({
-            id: BATTERY_HYBRID_UPGRADE_ITEM_ID,
-            description: `Hybrid Inverter Upgrade for Battery: ${targetName} (replaces ${currentInverterName})`,
-            qty: 1,
-            unit_price: parseFloat(rule.price_amount) || 0,
-            linked_product: rule.to_product_bubble_id || null
-        });
-    } else {
-        manualItems.push({
-            id: BATTERY_HYBRID_UPGRADE_ITEM_ID,
-            description: `Hybrid inverter required for battery (replaces ${currentInverterName}) - price to be confirmed`,
-            qty: 1,
-            unit_price: 0,
-            linked_product: null
-        });
-    }
+    // The package itself now shows the hybrid inverter (saved the same way by the server).
+    showPackageDescriptionWithInverter(hybridName);
+
+    manualItems.push({
+        id: BATTERY_HYBRID_UPGRADE_ITEM_ID,
+        description: rule
+            ? `Hybrid Inverter Upgrade (for battery): ${hybridName}`
+            : 'Hybrid Inverter Upgrade (for battery) - price to be confirmed',
+        qty: 1,
+        unit_price: rule ? (parseFloat(rule.price_amount) || 0) : 0,
+        linked_product: rule?.to_product_bubble_id || null
+    });
 
     renderManualItems();
     updateInvoicePreview();
+}
+
+// Show the package description, with its inverter line swapped when hybridName is given.
+function showPackageDescriptionWithInverter(hybridName) {
+    const display = document.getElementById('packageDescDisplay');
+    const base = String(window.currentBasePackageDescription || '');
+    if (!display || !base) return;
+    if (!hybridName) {
+        display.textContent = base;
+        return;
+    }
+    let swapped = false;
+    const lines = base.split(/\r?\n/).map(line => {
+        if (!swapped && /inverter/i.test(line)) {
+            swapped = true;
+            const qtyPrefix = (line.trim().match(/^(\d+\s*X)\s/i) || [null, '1X'])[1];
+            return `${qtyPrefix} ${hybridName}`;
+        }
+        return line;
+    });
+    if (!swapped) lines.push(`1X ${hybridName}`);
+    display.textContent = lines.join('\n');
 }
 
 function hideRetiredHybridUpgradeControls() {

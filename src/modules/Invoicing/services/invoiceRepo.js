@@ -1133,6 +1133,67 @@ async function _createInvoiceRecord(client, data, financials, deps, voucherInfo)
   return invoiceResult.rows[0];
 }
 
+// A battery needs a hybrid inverter. When a quotation carries a battery line and its
+// package has a string inverter, the saved package text shows the hybrid inverter
+// instead (model from hybrid_inverter_upgrade_rule; "model to be confirmed" when none).
+const BATTERY_PRODUCT_REF = '1776182988047x800815659516747800';
+
+function hasBatteryExtraItem(items) {
+  return (Array.isArray(items) ? items : []).some((item) => {
+    if (!item || !((parseFloat(item.qty) || 0) > 0)) return false;
+    const linked = item.linked_product || item.linkedProduct || '';
+    return linked === BATTERY_PRODUCT_REF || /battery/i.test(String(item.description || ''));
+  });
+}
+
+function hybridInverterNameForBattery(upgradeOptions) {
+  const currentName = String(upgradeOptions?.currentInverter?.name || '');
+  const phaseTag = /\[1P\]/i.test(currentName) ? '[1P]' : (/\[3P\]/i.test(currentName) ? '[3P]' : '');
+  const rules = Array.isArray(upgradeOptions?.rules) ? upgradeOptions.rules : [];
+  const rule = rules.find((r) => (parseFloat(r?.price_amount) || 0) > 0) || null;
+  if (rule?.to_product_name_snapshot) return rule.to_product_name_snapshot;
+  if (rule?.to_model_code) return `${phaseTag ? `${phaseTag} ` : ''}SAJ ${rule.to_model_code} Hybrid Inverter`;
+  return `${phaseTag ? `${phaseTag} ` : ''}Hybrid Inverter (model to be confirmed)`;
+}
+
+function swapInverterLineToHybrid(description, hybridName) {
+  const lines = String(description || '').split(/\r?\n/);
+  let swapped = false;
+  const updated = lines.map((line) => {
+    if (!swapped && /inverter/i.test(line)) {
+      swapped = true;
+      const qtyPrefix = (line.trim().match(/^(\d+\s*X)\s/i) || [null, '1X'])[1];
+      return `${qtyPrefix} ${hybridName}`;
+    }
+    return line;
+  });
+  if (!swapped) updated.push(`1X ${hybridName}`);
+  return updated.join('\n');
+}
+
+async function buildPackageItemDescription(client, pkg, data) {
+  const baseDescription = pkg.invoice_desc || pkg.name || 'Solar Package';
+  if (!hasBatteryExtraItem(data?.extraItems) || !pkg?.bubble_id) return baseDescription;
+
+  // Savepoint: a failed lookup must never abort the quotation save.
+  try {
+    await client.query('SAVEPOINT battery_hybrid_desc');
+  } catch (err) {
+    return baseDescription;
+  }
+  try {
+    const upgradeOptions = await getHybridUpgradeOptionsForPackage(client, pkg.bubble_id);
+    await client.query('RELEASE SAVEPOINT battery_hybrid_desc');
+    if (upgradeOptions?.packageAlreadyHybrid) return baseDescription;
+    if (/hybrid|hybird/i.test(`${pkg.name || ''} ${pkg.package_name || ''}`)) return baseDescription;
+    return swapInverterLineToHybrid(baseDescription, hybridInverterNameForBattery(upgradeOptions));
+  } catch (err) {
+    console.warn('[Battery] Could not swap package inverter to hybrid:', err.message);
+    await client.query('ROLLBACK TO SAVEPOINT battery_hybrid_desc').catch(() => { });
+    return baseDescription;
+  }
+}
+
 /**
  * Helper: Insert all line items (Refactored to use invoice_item)
  * @private
@@ -1147,7 +1208,7 @@ async function _createLineItems(client, invoiceId, data, financials, deps, vouch
 
   // 1. Package Item
   const packageItemBubbleId = await insertInvoiceItem(client, invoiceId, {
-    description: pkg.invoice_desc || pkg.name || 'Solar Package',
+    description: await buildPackageItemDescription(client, pkg, data),
     qty: 1,
     unitPrice: priceWithMarkup,
     amount: priceWithMarkup,

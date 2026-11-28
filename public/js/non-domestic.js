@@ -752,9 +752,9 @@ function displayFullROIResults(data, recommendedPanels = null, isRecalculation =
                         <div><div class="opacity-50">Battery_Value_Add</div><div class="text-sm font-bold text-emerald-400">${battery.valueAddKnown ? `+RM ${formatCurrency(battery.valueAddMonthly)}/mo` : 'Unconfirmed'}</div></div>
                         <div><div class="opacity-50">Battery_Cost</div><div class="text-sm font-bold">RM ${formatCurrency(battery.cost)}</div></div>
                     </div>
-                    ${upgrade.needed ? `<p class="text-[10px] text-amber-400 mt-3 font-semibold">* A battery needs a hybrid inverter. ${upgrade.priced
-                        ? `Added: ${upgrade.name}${upgrade.replaces ? ` (replaces ${upgrade.replaces})` : ''} RM ${formatCurrency(upgrade.price)}.`
-                        : `No upgrade price for ${upgrade.replaces || 'this inverter'} yet, so the hybrid inverter price is to be confirmed (not included in cost).`}</p>` : ''}
+                    ${upgrade.needed ? `<p class="text-[10px] text-emerald-400 mt-3 font-semibold">Inverter changed to hybrid for the battery: ${upgrade.priced
+                        ? `${upgrade.name} (+RM ${formatCurrency(upgrade.price)}).`
+                        : `hybrid inverter model and price to be confirmed (not included in cost yet).`}</p>` : ''}
                     ` : ''}
                 </div>
 
